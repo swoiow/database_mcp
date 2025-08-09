@@ -1,0 +1,7 @@
+mcp[server]>=0.4.0
+sqlalchemy>=2.0.30
+asyncpg>=0.29.0
+aiomysql>=0.2.0
+python-dotenv>=1.0.1
+uvicorn>=0.30.0
+fastapi>=0.110.0
