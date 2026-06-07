@@ -1,11 +1,15 @@
 """Gateway configuration models and persistence.
 
-Manages database connections, users, and ACL rules.
-Persisted to a local JSON file.
+Three-layer model:
+  Connection  = credentials (admin-level, all tables)
+  Endpoint    = MCP exposure layer (references a connection, carries allowed_tables)
+  ACL         = user -> endpoint binding
+
+Persisted via pickle for compact binary storage.
 """
 from __future__ import annotations
 
-import json
+import pickle
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +23,7 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 class ConnectionMeta(BaseModel):
-    """A single database connection definition."""
+    """Database credentials. Admin-level, no table restrictions."""
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     alias: str = Field(..., description="Human-readable alias, unique per db_type")
     db_type: str = Field(..., description="mysql or pgsql")
@@ -33,8 +37,57 @@ class ConnectionMeta(BaseModel):
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
+class EndpointMeta(BaseModel):
+    """MCP exposure layer. References a connection, optionally restricts tables.
+
+    allowed_tables:
+      []  = all tables (no restriction, inherits connection's full access)
+      ["table1", "schema.table2"] = whitelist only those tables
+    """
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
+    alias: str = Field(..., description="Unique endpoint alias, used in URL path")
+    connection_id: str = Field(..., description="References a ConnectionMeta.id")
+    allowed_tables: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Table whitelist. Empty = all tables. "
+            "Formats: 'table', 'db.table', 'schema.table'."
+        ),
+    )
+    description: str = ""
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @property
+    def table_restricted(self) -> bool:
+        return len(self.allowed_tables) > 0
+
+    def is_table_allowed(self, table: str, scope: Optional[str] = None) -> bool:
+        """Check if a table is in this endpoint's whitelist."""
+        if not self.table_restricted:
+            return True
+
+        table_lower = table.lower().strip()
+        scope_lower = (scope or "").lower().strip()
+
+        for entry in self.allowed_tables:
+            entry_lower = entry.lower().strip()
+            if entry_lower == table_lower:
+                return True
+            if "." in entry_lower:
+                e_scope, e_table = entry_lower.split(".", 1)
+                if e_table == table_lower:
+                    if not scope_lower or e_scope == scope_lower:
+                        return True
+        return False
+
+    def filter_tables(self, tables: List[str], scope: Optional[str] = None) -> List[str]:
+        if not self.table_restricted:
+            return tables
+        return [t for t in tables if self.is_table_allowed(t, scope)]
+
+
 class UserMeta(BaseModel):
-    """A gateway user (token-based auth)."""
+    """Gateway user (token-based auth)."""
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     username: str = Field(..., description="Unique username")
     token: str = Field(default_factory=lambda: uuid.uuid4().hex)
@@ -43,15 +96,16 @@ class UserMeta(BaseModel):
 
 
 class ACLEntry(BaseModel):
-    """ACL: which user can access which connection."""
+    """ACL: which user can access which endpoint."""
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     user_id: str
-    connection_id: str
+    endpoint_id: str
 
 
 class GatewayConfig(BaseModel):
     """Top-level config persisted to disk."""
     connections: List[ConnectionMeta] = Field(default_factory=list)
+    endpoints: List[EndpointMeta] = Field(default_factory=list)
     users: List[UserMeta] = Field(default_factory=list)
     acl: List[ACLEntry] = Field(default_factory=list)
 
@@ -60,41 +114,42 @@ class GatewayConfig(BaseModel):
 # Persistence
 # ---------------------------------------------------------------------------
 
-_DEFAULT_PATH = Path("gateway_data.json")
+_DEFAULT_PATH = Path("gateway_data.pkl")
+_PKL_PROTOCOL = pickle.HIGHEST_PROTOCOL
 
 
 class ConfigStore:
-    """Synchronous JSON-file backed config store."""
+    """Pickle-file backed config store."""
 
     def __init__(self, path: Path | str | None = None) -> None:
         self._path = Path(path) if path else _DEFAULT_PATH
         self._data = self._load()
 
-    # -- low-level IO --
-
     def _load(self) -> GatewayConfig:
         if self._path.exists():
             try:
-                raw = json.loads(self._path.read_text(encoding="utf-8"))
-                return GatewayConfig.model_validate(raw)
-            except (json.JSONDecodeError, ValueError):
+                with open(self._path, "rb") as f:
+                    raw = pickle.load(f)
+                # Support both dict and GatewayConfig payloads
+                if isinstance(raw, GatewayConfig):
+                    return raw
+                if isinstance(raw, dict):
+                    return GatewayConfig.model_validate(raw)
+            except (pickle.UnpicklingError, ValueError, EOFError, Exception):
                 pass
         return GatewayConfig()
 
     def _save(self) -> None:
-        self._path.write_text(
-            self._data.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        with open(self._path, "wb") as f:
+            pickle.dump(self._data, f, protocol=_PKL_PROTOCOL)
 
     @property
     def data(self) -> GatewayConfig:
         return self._data
 
-    def save(self) -> None:
-        self._save()
-
-    # -- connections --
+    # ------------------------------------------------------------------
+    # Connections
+    # ------------------------------------------------------------------
 
     def list_connections(self, db_type: Optional[str] = None) -> List[ConnectionMeta]:
         conns = self._data.connections
@@ -115,7 +170,6 @@ class ConfigStore:
         return None
 
     def add_connection(self, conn: ConnectionMeta) -> ConnectionMeta:
-        # check alias uniqueness within same db_type
         existing = self.get_connection_by_alias(conn.alias)
         if existing and existing.db_type == conn.db_type:
             raise ValueError(f"Alias '{conn.alias}' already exists for {conn.db_type}")
@@ -137,11 +191,74 @@ class ConfigStore:
 
     def delete_connection(self, conn_id: str) -> None:
         self._data.connections = [c for c in self._data.connections if c.id != conn_id]
-        # cascade ACL
-        self._data.acl = [a for a in self._data.acl if a.connection_id != conn_id]
+        ep_ids = {e.id for e in self._data.endpoints if e.connection_id == conn_id}
+        self._data.endpoints = [e for e in self._data.endpoints if e.connection_id != conn_id]
+        self._data.acl = [a for a in self._data.acl if a.endpoint_id not in ep_ids]
         self._save()
 
-    # -- users --
+    # ------------------------------------------------------------------
+    # Endpoints
+    # ------------------------------------------------------------------
+
+    def list_endpoints(self, connection_id: Optional[str] = None) -> List[EndpointMeta]:
+        eps = self._data.endpoints
+        if connection_id:
+            eps = [e for e in eps if e.connection_id == connection_id]
+        return eps
+
+    def get_endpoint(self, endpoint_id: str) -> Optional[EndpointMeta]:
+        for e in self._data.endpoints:
+            if e.id == endpoint_id:
+                return e
+        return None
+
+    def get_endpoint_by_alias(self, alias: str) -> Optional[EndpointMeta]:
+        for e in self._data.endpoints:
+            if e.alias == alias:
+                return e
+        return None
+
+    def add_endpoint(self, ep: EndpointMeta) -> EndpointMeta:
+        if self.get_endpoint_by_alias(ep.alias):
+            raise ValueError(f"Endpoint alias '{ep.alias}' already exists")
+        if not self.get_connection(ep.connection_id):
+            raise ValueError(f"Connection '{ep.connection_id}' not found")
+        self._data.endpoints.append(ep)
+        self._save()
+        return ep
+
+    def update_endpoint(self, endpoint_id: str, patch: Dict[str, Any]) -> EndpointMeta:
+        ep = self.get_endpoint(endpoint_id)
+        if not ep:
+            raise ValueError(f"Endpoint '{endpoint_id}' not found")
+        for k, v in patch.items():
+            if k in ("id", "created_at"):
+                continue
+            setattr(ep, k, v)
+        self._save()
+        return ep
+
+    def delete_endpoint(self, endpoint_id: str) -> None:
+        self._data.endpoints = [e for e in self._data.endpoints if e.id != endpoint_id]
+        self._data.acl = [a for a in self._data.acl if a.endpoint_id != endpoint_id]
+        self._save()
+
+    def resolve_endpoint(self, ep: EndpointMeta):
+        """Return (ConnectionMeta, EndpointMeta) or raise."""
+        conn = self.get_connection(ep.connection_id)
+        if not conn:
+            raise ValueError(f"Endpoint '{ep.id}' references missing connection '{ep.connection_id}'")
+        return conn, ep
+
+    def get_endpoint_path(self, ep: EndpointMeta) -> str:
+        """URL path for this endpoint based on connection's db_type."""
+        conn = self.get_connection(ep.connection_id)
+        db_type = conn.db_type if conn else "unknown"
+        return f"/{db_type}/{ep.alias}"
+
+    # ------------------------------------------------------------------
+    # Users
+    # ------------------------------------------------------------------
 
     def list_users(self) -> List[UserMeta]:
         return self._data.users
@@ -179,7 +296,9 @@ class ConfigStore:
         self._save()
         return user.token
 
-    # -- ACL --
+    # ------------------------------------------------------------------
+    # ACL
+    # ------------------------------------------------------------------
 
     def list_acl(self, user_id: Optional[str] = None) -> List[ACLEntry]:
         entries = self._data.acl
@@ -187,17 +306,15 @@ class ConfigStore:
             entries = [a for a in entries if a.user_id == user_id]
         return entries
 
-    def add_acl(self, user_id: str, connection_id: str) -> ACLEntry:
-        # validate
+    def add_acl(self, user_id: str, endpoint_id: str) -> ACLEntry:
         if not self.get_user(user_id):
             raise ValueError(f"User '{user_id}' not found")
-        if not self.get_connection(connection_id):
-            raise ValueError(f"Connection '{connection_id}' not found")
-        # duplicate check
+        if not self.get_endpoint(endpoint_id):
+            raise ValueError(f"Endpoint '{endpoint_id}' not found")
         for a in self._data.acl:
-            if a.user_id == user_id and a.connection_id == connection_id:
+            if a.user_id == user_id and a.endpoint_id == endpoint_id:
                 return a
-        entry = ACLEntry(user_id=user_id, connection_id=connection_id)
+        entry = ACLEntry(user_id=user_id, endpoint_id=endpoint_id)
         self._data.acl.append(entry)
         self._save()
         return entry
@@ -206,22 +323,18 @@ class ConfigStore:
         self._data.acl = [a for a in self._data.acl if a.id != acl_id]
         self._save()
 
-    def check_access(self, user_id: str, connection_id: str) -> bool:
+    def check_access(self, user_id: str, endpoint_id: str) -> bool:
         return any(
-            a.user_id == user_id and a.connection_id == connection_id
+            a.user_id == user_id and a.endpoint_id == endpoint_id
             for a in self._data.acl
         )
 
-    def get_user_connections(self, user_id: str) -> List[ConnectionMeta]:
-        conn_ids = {a.connection_id for a in self._data.acl if a.user_id == user_id}
-        return [c for c in self._data.connections if c.id in conn_ids]
-
-    def get_connection_endpoint(self, conn: ConnectionMeta) -> str:
-        """Return the MCP endpoint path for a connection, e.g. /pgsql/abc123."""
-        return f"/{conn.db_type}/{conn.id}"
+    def get_user_endpoints(self, user_id: str) -> List[EndpointMeta]:
+        ep_ids = {a.endpoint_id for a in self._data.acl if a.user_id == user_id}
+        return [e for e in self._data.endpoints if e.id in ep_ids]
 
 
-# Global singleton (will be initialized by gateway)
+# Global singleton
 store: Optional[ConfigStore] = None
 
 

@@ -1,7 +1,9 @@
 """Management API routes for the DB-MCP Gateway.
 
-Provides REST endpoints to manage connections, users, and ACL,
-plus a token-authenticated endpoint for users to discover their MCP endpoints.
+Three-layer model:
+  Connection  = credentials (admin)
+  Endpoint    = MCP exposure (table scope lives here)
+  ACL         = user -> endpoint
 """
 from __future__ import annotations
 
@@ -10,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
-from gateway_config import (ACLEntry, ConfigStore, ConnectionMeta, get_store, UserMeta)
+from gateway_config import (ACLEntry, ConfigStore, ConnectionMeta, EndpointMeta, get_store, UserMeta)
 
 
 logger = logging.getLogger("gateway.api")
@@ -23,10 +25,9 @@ def _store() -> ConfigStore:
     return get_store()
 
 
-def _regen_app(request: Request) -> None:
-    gateway = request.app
-    if hasattr(gateway, "state"):
-        gateway.state.regen_routes = True
+def _regen(request: Request) -> None:
+    if hasattr(request.app, "state"):
+        request.app.state.regen_routes = True
 
 
 # =========================================================================
@@ -49,9 +50,7 @@ def get_connection(conn_id: str):
 @admin_router.post("/connections", response_model=ConnectionMeta, status_code=201)
 def create_connection(body: ConnectionMeta, request: Request):
     try:
-        conn = _store().add_connection(body)
-        _regen_app(request)
-        return conn
+        return _store().add_connection(body)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -59,9 +58,7 @@ def create_connection(body: ConnectionMeta, request: Request):
 @admin_router.patch("/connections/{conn_id}", response_model=ConnectionMeta)
 def update_connection(conn_id: str, body: Dict[str, Any], request: Request):
     try:
-        conn = _store().update_connection(conn_id, body)
-        _regen_app(request)
-        return conn
+        return _store().update_connection(conn_id, body)
     except ValueError as e:
         raise HTTPException(404, str(e))
 
@@ -69,24 +66,65 @@ def update_connection(conn_id: str, body: Dict[str, Any], request: Request):
 @admin_router.delete("/connections/{conn_id}", status_code=204)
 def delete_connection(conn_id: str, request: Request):
     _store().delete_connection(conn_id)
-    _regen_app(request)
+    _regen(request)
 
 
 @admin_router.post("/connections/batch", response_model=List[ConnectionMeta], status_code=201)
 def batch_create_connections(items: List[ConnectionMeta], request: Request):
-    """Batch create connections. Supports bulk-add for large fleets."""
     results = []
-    errors = []
     for item in items:
         try:
             results.append(_store().add_connection(item))
-        except ValueError as e:
-            errors.append({"alias": item.alias, "error": str(e)})
+        except ValueError:
+            pass
     if results:
-        _regen_app(request)
-    if errors and not results:
-        raise HTTPException(400, {"message": "All items failed", "errors": errors})
+        _regen(request)
+    if not results:
+        raise HTTPException(400, "All items failed")
     return results
+
+
+# =========================================================================
+# Endpoints CRUD
+# =========================================================================
+
+@admin_router.get("/endpoints", response_model=List[EndpointMeta])
+def list_endpoints(connection_id: Optional[str] = None):
+    return _store().list_endpoints(connection_id)
+
+
+@admin_router.get("/endpoints/{ep_id}", response_model=EndpointMeta)
+def get_endpoint(ep_id: str):
+    ep = _store().get_endpoint(ep_id)
+    if not ep:
+        raise HTTPException(404, "Endpoint not found")
+    return ep
+
+
+@admin_router.post("/endpoints", response_model=EndpointMeta, status_code=201)
+def create_endpoint(body: EndpointMeta, request: Request):
+    try:
+        ep = _store().add_endpoint(body)
+        _regen(request)
+        return ep
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@admin_router.patch("/endpoints/{ep_id}", response_model=EndpointMeta)
+def update_endpoint(ep_id: str, body: Dict[str, Any], request: Request):
+    try:
+        ep = _store().update_endpoint(ep_id, body)
+        _regen(request)
+        return ep
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+
+
+@admin_router.delete("/endpoints/{ep_id}", status_code=204)
+def delete_endpoint(ep_id: str, request: Request):
+    _store().delete_endpoint(ep_id)
+    _regen(request)
 
 
 # =========================================================================
@@ -121,7 +159,7 @@ def regenerate_token(user_id: str):
 
 
 # =========================================================================
-# ACL
+# ACL (user -> endpoint)
 # =========================================================================
 
 @admin_router.get("/acl", response_model=List[ACLEntry])
@@ -130,10 +168,10 @@ def list_acl(user_id: Optional[str] = None):
 
 
 @admin_router.post("/acl", response_model=ACLEntry, status_code=201)
-def create_acl(user_id: str, connection_id: str, request: Request):
+def create_acl(user_id: str, endpoint_id: str, request: Request):
     try:
-        entry = _store().add_acl(user_id, connection_id)
-        _regen_app(request)
+        entry = _store().add_acl(user_id, endpoint_id)
+        _regen(request)
         return entry
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -141,22 +179,21 @@ def create_acl(user_id: str, connection_id: str, request: Request):
 
 @admin_router.post("/acl/batch", response_model=List[ACLEntry], status_code=201)
 def batch_create_acl(items: List[Dict[str, str]], request: Request):
-    """Batch create ACL rules: [{"user_id": "...", "connection_id": "..."}, ...]"""
     results = []
     for item in items:
         try:
-            results.append(_store().add_acl(item["user_id"], item["connection_id"]))
+            results.append(_store().add_acl(item["user_id"], item["endpoint_id"]))
         except ValueError:
             pass
     if results:
-        _regen_app(request)
+        _regen(request)
     return results
 
 
 @admin_router.delete("/acl/{acl_id}", status_code=204)
 def delete_acl(acl_id: str, request: Request):
     _store().remove_acl(acl_id)
-    _regen_app(request)
+    _regen(request)
 
 
 # =========================================================================
@@ -165,27 +202,22 @@ def delete_acl(acl_id: str, request: Request):
 
 @user_router.get("/endpoints")
 def list_my_endpoints(token: str):
-    """Given a user token, return the list of MCP endpoints this user can access."""
     user = _store().get_user_by_token(token)
     if not user:
         raise HTTPException(403, "Invalid token")
-    conns = _store().get_user_connections(user.id)
+    eps = _store().get_user_endpoints(user.id)
     return {
         "user": user.username,
         "endpoints": [
             {
-                "connection_id": c.id,
-                "alias": c.alias,
-                "db_type": c.db_type,
-                "host": c.host,
-                "db_name": c.db_name,
-                "mcp_sse": f"/{c.db_type}/{c.alias}/sse",
-                "mcp_messages": f"/{c.db_type}/{c.alias}/messages",
-                "mcp_http": f"/{c.db_type}/{c.alias}/mcp",
-                "mcp_sse_id": f"/{c.db_type}/{c.id}/sse",
-                "mcp_messages_id": f"/{c.db_type}/{c.id}/messages",
-                "mcp_http_id": f"/{c.db_type}/{c.id}/mcp",
+                "endpoint_id": ep.id,
+                "alias": ep.alias,
+                "description": ep.description,
+                "allowed_tables": ep.allowed_tables or "(all)",
+                "mcp_sse": _store().get_endpoint_path(ep) + "/sse",
+                "mcp_messages": _store().get_endpoint_path(ep) + "/messages",
+                "mcp_http": _store().get_endpoint_path(ep) + "/mcp",
             }
-            for c in conns
+            for ep in eps
         ],
     }

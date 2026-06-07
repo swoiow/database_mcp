@@ -1,15 +1,14 @@
 """DB-MCP Gateway - main entrypoint.
 
-Manages database connections, users, ACL, and dynamically mounts
-per-connection MCP servers under:
-  /{db_type}/{alias}/sse   (SSE transport)
-  /{db_type}/{alias}/mcp   (Streamable HTTP transport)
-  /{db_type}/{id}/...      (same, by connection ID)
+Three-layer model:
+  Connection = database credentials (admin-level, all tables)
+  Endpoint   = MCP exposure layer (references a connection + optional allowed_tables)
+  ACL        = user -> endpoint binding
 
-Supports unlimited connections. Admin UI at /admin.
+Mounts one MCP sub-app per endpoint under:
+  /{db_type}/{endpoint_alias}/sse|messages|mcp
+
 Config persisted to gateway_data.json.
-
-SDK: mcp 1.27+ with FastMCP -> .sse_app() / .streamable_http_app()
 """
 from __future__ import annotations
 
@@ -24,45 +23,50 @@ from fastapi.staticfiles import StaticFiles
 
 from gateway_api import admin_router, user_router
 from gateway_config import ConfigStore, get_store, UserMeta
-from gateway_mcp_factory import create_mcp_for_connection
+from gateway_mcp_factory import create_mcp_for_endpoint
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger("gateway")
 
-# mount_path -> Starlette sub-app
 _mounted_apps: Dict[str, object] = {}
 
 
 def _sync_mounts(app: FastAPI, store: ConfigStore) -> None:
-    """Rebuild all MCP sub-app mounts based on current config."""
     global _mounted_apps
 
     desired: Dict[str, str] = {}
-    for conn in store.list_connections():
-        desired[f"/{conn.db_type}/{conn.alias}"] = f"{conn.db_type}:{conn.alias}"
-        desired[f"/{conn.db_type}/{conn.id}"] = f"{conn.db_type}:{conn.id}"
+    for ep in store.list_endpoints():
+        conn = store.get_connection(ep.connection_id)
+        if not conn:
+            continue
+        path = store.get_endpoint_path(ep)
+        desired[path] = ep.alias
+        desired[f"/{conn.db_type}/{ep.id}"] = ep.id
 
-    # Remove stale mounts
+    # Remove stale
     for path in [p for p in _mounted_apps if p not in desired]:
         logger.info("Unmounting: %s", path)
         app.routes = [r for r in app.routes if not _route_matches(r, path)]
         del _mounted_apps[path]
 
-    # Add new mounts
+    # Add new
     for path in desired:
         if path in _mounted_apps:
             continue
         slug = path.rsplit("/", 1)[-1]
-        conn = store.get_connection(slug) or store.get_connection_by_alias(slug)
+        ep = store.get_endpoint(slug) or store.get_endpoint_by_alias(slug)
+        if not ep:
+            continue
+        conn = store.get_connection(ep.connection_id)
         if not conn:
             continue
         try:
-            mcp = create_mcp_for_connection(conn)
+            mcp = create_mcp_for_endpoint(conn, ep)
             sub = mcp.sse_app()
             app.mount(path, sub)
             _mounted_apps[path] = sub
-            logger.info("Mounted MCP: %s", path)
+            logger.info("Mounted MCP: %s (tables: %s)", path, ep.allowed_tables or "ALL")
         except Exception:
             logger.exception("Failed to mount %s", path)
 
@@ -78,7 +82,7 @@ async def lifespan(app: FastAPI):
     store = get_store()
     if not store.list_users():
         store.add_user(UserMeta(username="admin", is_admin=True))
-        logger.info("Created default admin user (check gateway_data.json for token)")
+        logger.info("Created default admin user")
     _sync_mounts(app, store)
     yield
 
@@ -106,22 +110,18 @@ async def admin_page():
 async def root() -> dict:
     return {
         "service": "DB-MCP-Gateway",
-        "mounted_connections": len(_mounted_apps) // 2 if _mounted_apps else 0,
-        "endpoints": {
+        "endpoints_count": len(_mounted_apps) // 2 if _mounted_apps else 0,
+        "docs": {
             "admin_ui": "/admin",
-            "admin_api": "/admin/api/{resource}",
             "user_discovery": "/api/endpoints?token=YOUR_TOKEN",
-            "mcp_sse": "/{db_type}/{alias}/sse",
-            "mcp_messages": "/{db_type}/{alias}/messages",
-            "mcp_streamable_http": "/{db_type}/{alias}/mcp",
+            "mcp_sse": "/{db_type}/{endpoint_alias}/sse",
         },
     }
 
 
 @app.post("/admin/reload")
 async def reload_mounts():
-    store = get_store()
-    _sync_mounts(app, store)
+    _sync_mounts(app, get_store())
     return {"mounted": list(_mounted_apps.keys())}
 
 
@@ -136,6 +136,4 @@ async def route_regen_middleware(request: Request, call_next):
 
 if __name__ == "__main__":
     import uvicorn
-
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -134,6 +134,10 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# DB-MCP Gateway data
+gateway_data.pkl
+gateway_data.json
+
 # Environments
 .env
 .envrc
