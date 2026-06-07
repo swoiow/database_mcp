@@ -1,20 +1,21 @@
+"""PostgreSQL MCP Server (SDK 1.27+).
+
+Standalone mode: `python server_pgsql.py` -> SSE on port 8002.
+Gateway mode: imported by gateway_mcp_factory.py as needed.
+"""
+from __future__ import annotations
+
 import os
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncConnection
 
-from core.cache import TTLCache, mk_cache_key
+from core.cache import mk_cache_key, TTLCache
 from drivers.pgsql_driver import PGSQLDriver
 from prompts.pgsql_prompts import PG_PROMPTS
 
-"""
-PostgreSQL 专用 MCP Server
-- 独立进程，独立提示词
-- 可选 TTL 缓存（全局开关 + 每次调用开关）
-"""
 
 load_dotenv()
 
@@ -29,9 +30,9 @@ CACHE_TTL_DEFAULT = int(os.getenv("DBMCP_CACHE_TTL", "60"))
 cache = TTLCache(maxsize=512)
 
 driver = PGSQLDriver()
-mcp = FastMCP("DB-MCP-PGSQL", host=None)
+mcp = FastMCP("DB-MCP-PGSQL")
 
-# ---------- 资源：PostgreSQL 提示词 ----------
+# ---------- Resources: prompts ----------
 for name, text_md in PG_PROMPTS.items():
     mcp.add_resource(
         uri=f"mcp://pgsql/prompts/{name}",
@@ -40,55 +41,51 @@ for name, text_md in PG_PROMPTS.items():
         text=text_md,
     )
 
-# ---------- 数据模型 ----------
+
+# ---------- Data models ----------
 class ConnInput(BaseModel):
-    host: str = Field(default=DB_HOST, description="Host / 主机")
-    port: Optional[str] = Field(default=DB_PORT, description="Port / 端口")
-    user: Optional[str] = Field(default=DB_USER, description="User / 用户名")
-    password: Optional[str] = Field(default=DB_PASSWORD, description="Password / 密码")
-    db_name: Optional[str] = Field(default=DB_NAME, description="Database name / 数据库名")
-    use_cache: bool = Field(default=CACHE_ENABLED_DEFAULT, description="Enable cache for this call / 是否启用缓存")
-    ttl: int = Field(default=CACHE_TTL_DEFAULT, description="Cache TTL seconds / 缓存秒数")
+    host: str = Field(default=DB_HOST, description="Host")
+    port: Optional[str] = Field(default=DB_PORT, description="Port")
+    user: Optional[str] = Field(default=DB_USER, description="User")
+    password: Optional[str] = Field(default=DB_PASSWORD, description="Password")
+    db_name: Optional[str] = Field(default=DB_NAME, description="Database name")
+    use_cache: bool = Field(default=CACHE_ENABLED_DEFAULT, description="Enable cache")
+    ttl: int = Field(default=CACHE_TTL_DEFAULT, description="Cache TTL seconds")
 
 
 class GetTablesInput(ConnInput):
-    schema: Optional[str] = Field(default=None, description="Target schema / 目标 schema（必传）")
+    schema: Optional[str] = Field(default=None, description="Target schema")
 
 
 class GetTableSchemaInput(ConnInput):
-    schema: Optional[str] = Field(default=None, description="Target schema / 目标 schema（必传）")
-    table: str = Field(..., description="Table name / 表名")
+    schema: Optional[str] = Field(default=None, description="Target schema")
+    table: str = Field(..., description="Table name")
 
 
 class ExecuteSQLInput(ConnInput):
-    sql: str = Field(..., description="Only SELECT or WITH / 仅允许 SELECT 或 WITH")
-    max_rows: int = Field(default=2000, description="Row limit / 最大返回行数")
+    sql: str = Field(..., description="Only SELECT or WITH")
+    max_rows: int = Field(default=2000, description="Row limit")
 
 
-async def _connect(input: ConnInput) -> AsyncConnection:
+async def _connect(input: ConnInput) -> Any:
     engine = await driver.init_engine(
-        host=input.host, user=input.user or "", password=input.password or "", db_name=input.db_name, port=input.port
+        host=input.host, user=input.user or "", password=input.password or "",
+        db_name=input.db_name, port=input.port,
     )
     conn = await engine.connect()
     await driver.ensure_connection(conn)
     return conn
 
 
-# ---------- 工具 ----------
-@mcp.tool(
-    name="pgsql_get_builtin_prompt",
-    description="Get PostgreSQL built-in prompt by name. 获取 PostgreSQL 内置提示词（analysis/sql_rules/react）。",
-)
+# ---------- Tools ----------
+@mcp.tool(name="pgsql_get_builtin_prompt", description="Get PostgreSQL built-in prompt by name.")
 def pgsql_get_builtin_prompt(name: str) -> str:
     if name not in PG_PROMPTS:
         raise ValueError(f"Unknown prompt name: {name}")
     return PG_PROMPTS[name]
 
 
-@mcp.tool(
-    name="get_all_schemas",
-    description="List schemas and compact tables/columns map. 列出非系统 schema 与紧凑的表/字段清单。",
-)
+@mcp.tool(name="get_all_schemas", description="List schemas and compact tables/columns map.")
 async def get_all_schemas(input: ConnInput) -> Dict[str, Any]:
     key = mk_cache_key("pgsql.get_all_schemas", input.model_dump())
     if input.use_cache:
@@ -102,15 +99,11 @@ async def get_all_schemas(input: ConnInput) -> Dict[str, Any]:
     return out
 
 
-@mcp.tool(
-    name="get_tables",
-    description="List tables under a schema. 列出指定 schema 下的所有表。",
-)
+@mcp.tool(name="get_tables", description="List tables under a schema.")
 async def get_tables(input: GetTablesInput) -> List[str]:
     if not input.schema:
-        raise ValueError("schema is required / 必须提供 schema")
-    payload = input.model_dump()
-    key = mk_cache_key("pgsql.get_tables", payload)
+        raise ValueError("schema is required")
+    key = mk_cache_key("pgsql.get_tables", input.model_dump())
     if input.use_cache:
         hit = await cache.get(key)
         if hit is not None:
@@ -122,15 +115,11 @@ async def get_tables(input: GetTablesInput) -> List[str]:
     return out
 
 
-@mcp.tool(
-    name="get_table_schema",
-    description="Describe a table. 获取单表结构（字段/类型/可空/默认/注释）。",
-)
+@mcp.tool(name="get_table_schema", description="Describe a table.")
 async def get_table_schema(input: GetTableSchemaInput) -> Dict[str, Any]:
     if not input.schema:
-        raise ValueError("schema is required / 必须提供 schema")
-    payload = input.model_dump()
-    key = mk_cache_key("pgsql.get_table_schema", payload)
+        raise ValueError("schema is required")
+    key = mk_cache_key("pgsql.get_table_schema", input.model_dump())
     if input.use_cache:
         hit = await cache.get(key)
         if hit is not None:
@@ -142,10 +131,7 @@ async def get_table_schema(input: GetTableSchemaInput) -> Dict[str, Any]:
     return out
 
 
-@mcp.tool(
-    name="execute_sql",
-    description="Execute read-only SELECT (JSON). 执行只读 SELECT（自动 LIMIT，返回 JSON）。",
-)
+@mcp.tool(name="execute_sql", description="Execute read-only SELECT (JSON).")
 async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
     payload = {k: v for k, v in input.model_dump().items() if k != "password"}
     key = mk_cache_key("pgsql.execute_sql", payload)
@@ -161,5 +147,7 @@ async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    # uvicorn server_pgsql:mcp.app --host 0.0.0.0 --port 8002
-    mcp.run()
+    import uvicorn
+
+
+    uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=8002)

@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>DB-MCP Gateway Admin</title>
+  <style>
+    /* ===== Theme tokens ===== */
+    :root {
+      --bg: #f5f6fa;
+      --surface: #ffffff;
+      --surface2: #f0f1f5;
+      --border: #e0e2ea;
+      --text: #1a1d2e;
+      --text2: #6b7084;
+      --accent: #4a7de6;
+      --accent2: #3b6dd4;
+      --accent-surface: #eef3fd;
+      --danger: #d63a3f;
+      --danger-surface: #fdeaeb;
+      --success: #1f8a56;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .06);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3347;
+      --text: #e2e4ed;
+      --text2: #9ca0b0;
+      --accent: #5b8af5;
+      --accent2: #4a7de6;
+      --accent-surface: #1a2744;
+      --danger: #e5484d;
+      --danger-surface: #2e1a1b;
+      --success: #30a46c;
+      --shadow: none;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ===== Topbar ===== */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+    }
+
+    .topbar .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .topbar .stats {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--text2);
+    }
+
+    .topbar .theme-toggle {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text2);
+      font-size: 16px;
+      transition: background .15s;
+    }
+
+    .topbar .theme-toggle:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    /* ===== Tabs ===== */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 28px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      padding: 11px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .15s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ===== Main ===== */
+    .main {
+      flex: 1;
+      padding: 24px 28px;
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    /* ===== Controls ===== */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-surface);
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--border);
+    }
+
+    .search-box {
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      width: 220px;
+    }
+
+    .search-box:focus {
+      border-color: var(--accent);
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+
+    /* ===== Table ===== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--surface2);
+      color: var(--text2);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover {
+      color: var(--text);
+    }
+
+    th .sort-arrow {
+      font-size: 10px;
+      margin-left: 4px;
+      opacity: .3;
+    }
+
+    th.sorted .sort-arrow {
+      opacity: 1;
+      color: var(--accent);
+    }
+
+    tr:hover td {
+      background: var(--accent-surface);
+    }
+
+    .mono {
+      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .tag-mysql {
+      background: #e1edfb;
+      color: #2a6cc4;
+    }
+
+    .tag-pgsql {
+      background: #daf5e7;
+      color: #1a7f4b;
+    }
+
+    .tag-admin {
+      background: #fef3d6;
+      color: #946800;
+    }
+
+    [data-theme="dark"] .tag-mysql {
+      background: #1a3a5c;
+      color: #5ba8f5;
+    }
+
+    [data-theme="dark"] .tag-pgsql {
+      background: #1a3c2e;
+      color: #4ade80;
+    }
+
+    [data-theme="dark"] .tag-admin {
+      background: #3c2e1a;
+      color: #f5a623;
+    }
+
+    /* ===== Modal ===== */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, .3);
+      align-items: center;
+      justify-content: center;
+    }
+
+    [data-theme="dark"] .overlay {
+      background: rgba(0, 0, 0, .55);
+    }
+
+    .overlay.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      width: 560px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .12);
+    }
+
+    .modal h2 {
+      font-size: 16px;
+      margin-bottom: 18px;
+      font-weight: 600;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+
+    .field textarea {
+      min-height: 180px;
+      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
+
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-surface);
+    }
+
+    .field-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .field-row .field {
+      flex: 1;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    /* ===== Misc ===== */
+    .toast-area {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      animation: fadeIn .2s;
+    }
+
+    .toast-ok {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .toast-err {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px)
+      }
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .empty {
+      color: var(--text2);
+      font-size: 14px;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    .actions-cell {
+      display: flex;
+      gap: 6px;
+    }
+
+    .token-display {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .token-display code {
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: all;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .pagination .btn {
+      min-width: 36px;
+      justify-content: center;
+    }
+
+    .pagination .page-info {
+      font-size: 13px;
+      color: var(--text2);
+    }
+
+    .import-hint {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .mcp-path {
+      font-size: 12px;
+      color: var(--accent);
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>DB-MCP Gateway</h1>
+    <span class="badge">Admin</span>
+    <span class="stats" id="stats"></span>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('connections')">Connections</button>
+    <button class="tab-btn" onclick="switchTab('users')">Users</button>
+    <button class="tab-btn" onclick="switchTab('acl')">ACL</button>
+  </div>
+  <div class="main">
+    <!-- Connections -->
+    <div class="panel active" id="panel-connections">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openConnModal()">+ New</button>
+        <button class="btn btn-ghost" onclick="openImportModal()">Batch Import</button>
+        <select class="filter-select" id="conn-type-filter" onchange="loadConns()">
+          <option value="">All Types</option>
+          <option value="mysql">MySQL</option>
+          <option value="pgsql">PostgreSQL</option>
+        </select>
+        <input class="search-box" id="conn-search" oninput="loadConns()" placeholder="Search alias / host / db...">
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th onclick="sortConns('alias')">Alias <span class="sort-arrow">▲</span></th>
+          <th onclick="sortConns('db_type')">Type <span class="sort-arrow">▲</span></th>
+          <th onclick="sortConns('host')">Host <span class="sort-arrow">▲</span></th>
+          <th>Port</th>
+          <th>User</th>
+          <th>Database</th>
+          <th>MCP Endpoint</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="conn-tbody"></tbody>
+      </table>
+      <div class="empty" id="conn-empty" style="display:none">No connections. Click "+ New" or "Batch Import".</div>
+      <div class="pagination" id="conn-pagination"></div>
+    </div>
+
+    <!-- Users -->
+    <div class="panel" id="panel-users">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openUserModal()">+ New User</button>
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th>Username</th>
+          <th>Token</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="user-tbody"></tbody>
+      </table>
+      <div class="empty" id="user-empty" style="display:none">No users.</div>
+    </div>
+
+    <!-- ACL -->
+    <div class="panel" id="panel-acl">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openAclModal()">+ Add Rule</button>
+        <button class="btn btn-ghost" onclick="openAclBatchModal()">Batch Assign</button>
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th>User</th>
+          <th>Connection</th>
+          <th>Type</th>
+          <th>MCP Path</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="acl-tbody"></tbody>
+      </table>
+      <div class="empty" id="acl-empty" style="display:none">No ACL rules.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Modal -->
+<div class="overlay" id="conn-modal">
+  <div class="modal">
+    <h2 id="conn-modal-title">Add Connection</h2>
+    <input id="conn-edit-id" type="hidden">
+    <div class="field"><label>Alias (unique, used in URL path)</label><input id="conn-alias" placeholder="e.g. prod-orders-mysql"></div>
+    <div class="field"><label>Type</label><select id="conn-type" onchange="autoPort()">
+      <option value="mysql">MySQL</option>
+      <option value="pgsql">PostgreSQL</option>
+    </select></div>
+    <div class="field-row">
+      <div class="field"><label>Host</label><input id="conn-host" value="localhost"></div>
+      <div class="field"><label>Port</label><input id="conn-port" value="3306"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>User</label><input id="conn-user"></div>
+      <div class="field"><label>Password</label><input id="conn-pass" type="password"></div>
+    </div>
+    <div class="field"><label>Database</label><input id="conn-db"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('conn-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveConn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Import Modal -->
+<div class="overlay" id="import-modal">
+  <div class="modal">
+    <h2>Batch Import Connections</h2>
+    <div class="import-hint">JSON array. Required: alias, db_type, host, user, password, db_name.<br>Port defaults to 3306 (mysql) / 5432 (pgsql).
+    </div>
+    <div class="field"><textarea id="import-json" placeholder='[
+  {"alias":"prod-mysql", "db_type":"mysql", "host":"10.0.0.1", "user":"root", "password":"s3cret", "db_name":"orders"},
+  {"alias":"analytics-pg", "db_type":"pgsql", "host":"10.0.0.2", "user":"analytics", "password":"pwd", "db_name":"analytics"}
+]'></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('import-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="doImport()">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="overlay" id="user-modal">
+  <div class="modal">
+    <h2>Add User</h2>
+    <div class="field"><label>Username</label><input id="user-username"></div>
+    <div class="field"><label><input id="user-admin" type="checkbox"> Is Admin</label></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACL Modal -->
+<div class="overlay" id="acl-modal">
+  <div class="modal">
+    <h2>Add ACL Rule</h2>
+    <div class="field"><label>User</label><select id="acl-user"></select></div>
+    <div class="field"><label>Connection</label><select id="acl-conn"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('acl-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAcl()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACL Batch Modal -->
+<div class="overlay" id="acl-batch-modal">
+  <div class="modal">
+    <h2>Batch Assign ACL</h2>
+    <div class="import-hint">Assign all selected connections to one user.</div>
+    <div class="field"><label>User</label><select id="acl-batch-user"></select></div>
+    <div class="field"><label>Connections (Ctrl/Cmd + click to multi-select)</label>
+      <select id="acl-batch-conns" multiple style="min-height:160px"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAclBatch()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-area" id="toast-area"></div>
+
+<script>
+  const API = "/admin/api";
+  const PAGE_SIZE = 20;
+  let allConns = [], allUsers = [], allAcl = [];
+  let connPage = 1, connSortKey = "alias", connSortDir = 1;
+
+  // ===== Theme =====
+  function getTheme() {
+    return localStorage.getItem("dbmcp-theme") || "light";
+  }
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    document.querySelector(".theme-toggle").textContent = t === "dark" ? "☀️" : "🌙";
+    localStorage.setItem("dbmcp-theme", t);
+  }
+
+  function toggleTheme() {
+    applyTheme(getTheme() === "dark" ? "light" : "dark");
+  }
+
+  applyTheme(getTheme());
+
+  // ===== Toast =====
+  function toast(msg, ok = true) {
+    const el = document.createElement("div");
+    el.className = "toast " + (ok ? "toast-ok" : "toast-err");
+    el.textContent = msg;
+    document.getElementById("toast-area").appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+
+  // ===== Tabs =====
+  function switchTab(name) {
+    document.querySelectorAll(".tab-btn").forEach((b, i) => b.classList.toggle("active", ["connections", "users", "acl"][i] === name));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + name).classList.add("active");
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.add("open");
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove("open");
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML;
+  }
+
+  function updateStats() {
+    document.getElementById("stats").textContent =
+        allConns.length + " connections | " + allUsers.length + " users | " + allAcl.length + " ACL rules";
+  }
+
+  // =========================================================================
+  // Connections
+  // =========================================================================
+  async function fetchConns() {
+    const res = await fetch(API + "/connections");
+    allConns = await res.json();
+    loadConns();
+  }
+
+  function getFilteredConns() {
+    const typeF = document.getElementById("conn-type-filter").value;
+    const q = document.getElementById("conn-search").value.toLowerCase().trim();
+    return allConns.filter(c => {
+      if (typeF && c.db_type !== typeF) return false;
+      if (q && !(c.alias.toLowerCase().includes(q) || c.host.toLowerCase().includes(q) || (c.db_name || "").toLowerCase().includes(q))) return false;
+      return true;
+    }).sort((a, b) => {
+      const va = a[connSortKey] || "", vb = b[connSortKey] || "";
+      return va < vb ? -connSortDir : va > vb ? connSortDir : 0;
+    });
+  }
+
+  function loadConns() {
+    const filtered = getFilteredConns();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (connPage > totalPages) connPage = totalPages;
+    const start = (connPage - 1) * PAGE_SIZE;
+    const page = filtered.slice(start, start + PAGE_SIZE);
+    const tbody = document.getElementById("conn-tbody");
+    const empty = document.getElementById("conn-empty");
+    if (!filtered.length) {
+      tbody.innerHTML = "";
+      empty.style.display = "";
+      renderPagination(0, 0);
+      updateStats();
+      return;
+    }
+    empty.style.display = "none";
+    tbody.innerHTML = page.map(c => '<tr>'
+        + '<td><strong>' + esc(c.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + c.id + '</span></td>'
+        + '<td><span class="tag tag-' + c.db_type + '">' + c.db_type + '</span></td>'
+        + '<td class="mono">' + esc(c.host) + '</td>'
+        + '<td class="mono">' + esc(c.port) + '</td>'
+        + '<td class="mono">' + esc(c.user) + '</td>'
+        + '<td class="mono">' + esc(c.db_name) + '</td>'
+        + '<td><span class="mcp-path">/' + c.db_type + '/' + c.alias + '/sse</span></td>'
+        + '<td class="actions-cell">'
+        + '<button class="btn btn-ghost btn-sm" onclick=\'editConn(' + JSON.stringify(c).replace(/'/g, "&#39;") + ')\'>Edit</button>'
+        + '<button class="btn btn-danger btn-sm" onclick="deleteConn(\'' + c.id + '\')">Del</button>'
+        + '</td></tr>'
+    ).join("");
+    renderPagination(connPage, totalPages);
+    updateStats();
+  }
+
+  function sortConns(key) {
+    if (connSortKey === key) connSortDir *= -1; else {
+      connSortKey = key;
+      connSortDir = 1;
+    }
+    loadConns();
+  }
+
+  function renderPagination(current, total) {
+    const el = document.getElementById("conn-pagination");
+    if (total <= 1) {
+      el.innerHTML = "";
+      return;
+    }
+    el.innerHTML =
+        '<button class="btn btn-ghost btn-sm" onclick="connPage=1;loadConns()" ' + (current === 1 ? 'disabled' : '') + '>First</button>'
+        + '<button class="btn btn-ghost btn-sm" onclick="connPage--;loadConns()" ' + (current === 1 ? 'disabled' : '') + '>Prev</button>'
+        + '<span class="page-info">' + current + ' / ' + total + '</span>'
+        + '<button class="btn btn-ghost btn-sm" onclick="connPage++;loadConns()" ' + (current === total ? 'disabled' : '') + '>Next</button>'
+        + '<button class="btn btn-ghost btn-sm" onclick="connPage=' + total + ';loadConns()" ' + (current === total ? 'disabled' : '') + '>Last</button>';
+  }
+
+  function autoPort() {
+    document.getElementById("conn-port").value = document.getElementById("conn-type").value === "mysql" ? "3306" : "5432";
+  }
+
+  function openConnModal() {
+    document.getElementById("conn-modal-title").textContent = "Add Connection";
+    document.getElementById("conn-edit-id").value = "";
+    ["conn-alias", "conn-host", "conn-user", "conn-pass", "conn-db"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("conn-type").value = "mysql";
+    document.getElementById("conn-port").value = "3306";
+    openModal("conn-modal");
+  }
+
+  function editConn(c) {
+    document.getElementById("conn-modal-title").textContent = "Edit Connection";
+    document.getElementById("conn-edit-id").value = c.id;
+    document.getElementById("conn-alias").value = c.alias;
+    document.getElementById("conn-type").value = c.db_type;
+    document.getElementById("conn-host").value = c.host;
+    document.getElementById("conn-port").value = c.port;
+    document.getElementById("conn-user").value = c.user;
+    document.getElementById("conn-pass").value = c.password;
+    document.getElementById("conn-db").value = c.db_name;
+    openModal("conn-modal");
+  }
+
+  async function saveConn() {
+    const editId = document.getElementById("conn-edit-id").value;
+    const body = {
+      alias: document.getElementById("conn-alias").value.trim(),
+      db_type: document.getElementById("conn-type").value,
+      host: document.getElementById("conn-host").value.trim(),
+      port: document.getElementById("conn-port").value.trim(),
+      user: document.getElementById("conn-user").value.trim(),
+      password: document.getElementById("conn-pass").value,
+      db_name: document.getElementById("conn-db").value.trim(),
+    };
+    const res = editId
+        ? await fetch(API + "/connections/" + editId, {
+          method: "PATCH",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        })
+        : await fetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    if (!res.ok) {
+      const e = await res.json();
+      toast(e.detail || "Error", false);
+      return;
+    }
+    closeModal("conn-modal");
+    toast(editId ? "Updated" : "Created");
+    fetchConns();
+  }
+
+  async function deleteConn(id) {
+    if (!confirm("Delete this connection and related ACL rules?")) return;
+    await fetch(API + "/connections/" + id, {method: "DELETE"});
+    toast("Deleted");
+    fetchConns();
+    fetchAcl();
+  }
+
+  // ===== Batch Import =====
+  function openImportModal() {
+    document.getElementById("import-json").value = "";
+    openModal("import-modal");
+  }
+
+  async function doImport() {
+    let items;
+    try {
+      items = JSON.parse(document.getElementById("import-json").value);
+    } catch (e) {
+      toast("Invalid JSON", false);
+      return;
+    }
+    if (!Array.isArray(items)) {
+      toast("Must be a JSON array", false);
+      return;
+    }
+    items = items.map(it => ({...it, port: it.port || (it.db_type === "mysql" ? "3306" : "5432"), host: it.host || "localhost"}));
+    const res = await fetch(API + "/connections/batch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(items)
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      toast(e.detail || "Error", false);
+      return;
+    }
+    const created = await res.json();
+    closeModal("import-modal");
+    toast("Imported " + created.length + " connections");
+    fetchConns();
+  }
+
+  // =========================================================================
+  // Users
+  // =========================================================================
+  async function fetchUsers() {
+    const res = await fetch(API + "/users");
+    allUsers = await res.json();
+    loadUsers();
+  }
+
+  function loadUsers() {
+    const tbody = document.getElementById("user-tbody");
+    const empty = document.getElementById("user-empty");
+    if (!allUsers.length) {
+      tbody.innerHTML = "";
+      empty.style.display = "";
+      updateStats();
+      return;
+    }
+    empty.style.display = "none";
+    tbody.innerHTML = allUsers.map(u => '<tr>'
+        + '<td><strong>' + esc(u.username) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + u.id + '</span></td>'
+        + '<td><div class="token-display"><code title="Click to copy" onclick="copyToken(\'' + u.token + '\')">' + esc(u.token) + '</code>'
+        + ' <button class="btn btn-ghost btn-sm" onclick="regenToken(\'' + u.id + '\')">Regen</button></div></td>'
+        + '<td>' + (u.is_admin ? '<span class="tag tag-admin">admin</span>' : 'user') + '</td>'
+        + '<td class="actions-cell"><button class="btn btn-danger btn-sm" onclick="deleteUser(\'' + u.id + '\')">Del</button></td>'
+        + '</tr>').join("");
+    updateStats();
+  }
+
+  function openUserModal() {
+    document.getElementById("user-username").value = "";
+    document.getElementById("user-admin").checked = false;
+    openModal("user-modal");
+  }
+
+  async function saveUser() {
+    const body = {username: document.getElementById("user-username").value.trim(), is_admin: document.getElementById("user-admin").checked};
+    const res = await fetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+    if (!res.ok) {
+      const e = await res.json();
+      toast(e.detail || "Error", false);
+      return;
+    }
+    closeModal("user-modal");
+    toast("User created");
+    fetchUsers();
+  }
+
+  async function deleteUser(id) {
+    if (!confirm("Delete user?")) return;
+    await fetch(API + "/users/" + id, {method: "DELETE"});
+    toast("Deleted");
+    fetchUsers();
+    fetchAcl();
+  }
+
+  function copyToken(t) {
+    navigator.clipboard.writeText(t);
+    toast("Copied");
+  }
+
+  async function regenToken(id) {
+    if (!confirm("Regenerate token?")) return;
+    await fetch(API + "/users/" + id + "/regen-token", {method: "POST"});
+    toast("Regenerated");
+    fetchUsers();
+  }
+
+  // =========================================================================
+  // ACL
+  // =========================================================================
+  async function fetchAcl() {
+    const res = await fetch(API + "/acl");
+    allAcl = await res.json();
+    loadAcl();
+  }
+
+  function loadAcl() {
+    const userMap = Object.fromEntries(allUsers.map(u => [u.id, u.username]));
+    const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
+    const tbody = document.getElementById("acl-tbody");
+    const empty = document.getElementById("acl-empty");
+    if (!allAcl.length) {
+      tbody.innerHTML = "";
+      empty.style.display = "";
+      updateStats();
+      return;
+    }
+    empty.style.display = "none";
+    tbody.innerHTML = allAcl.map(a => {
+      const c = connMap[a.connection_id];
+      return '<tr>'
+          + '<td>' + esc(userMap[a.user_id] || a.user_id) + '</td>'
+          + '<td>' + (c ? esc(c.alias) : a.connection_id) + '</td>'
+          + '<td>' + (c ? '<span class="tag tag-' + c.db_type + '">' + c.db_type + '</span>' : '') + '</td>'
+          + '<td>' + (c ? '<span class="mcp-path">/' + c.db_type + '/' + c.alias + '/sse</span>' : '') + '</td>'
+          + '<td><button class="btn btn-danger btn-sm" onclick="deleteAclEntry(\'' + a.id + '\')">Remove</button></td>'
+          + '</tr>';
+    }).join("");
+    updateStats();
+  }
+
+  async function openAclModal() {
+    document.getElementById("acl-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
+    document.getElementById("acl-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ')</option>').join("");
+    openModal("acl-modal");
+  }
+
+  async function saveAcl() {
+    const uid = document.getElementById("acl-user").value, cid = document.getElementById("acl-conn").value;
+    if (!uid || !cid) {
+      toast("Select both", false);
+      return;
+    }
+    const res = await fetch(API + "/acl?user_id=" + uid + "&connection_id=" + cid, {method: "POST"});
+    if (!res.ok) {
+      const e = await res.json();
+      toast(e.detail || "Error", false);
+      return;
+    }
+    closeModal("acl-modal");
+    toast("Rule added");
+    fetchAcl();
+  }
+
+  async function deleteAclEntry(id) {
+    await fetch(API + "/acl/" + id, {method: "DELETE"});
+    toast("Removed");
+    fetchAcl();
+  }
+
+  // ===== ACL Batch =====
+  function openAclBatchModal() {
+    document.getElementById("acl-batch-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
+    document.getElementById("acl-batch-conns").innerHTML = allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ' - ' + c.host + '/' + c.db_name + ')</option>').join("");
+    openModal("acl-batch-modal");
+  }
+
+  async function saveAclBatch() {
+    const uid = document.getElementById("acl-batch-user").value;
+    const cids = Array.from(document.getElementById("acl-batch-conns").selectedOptions).map(o => o.value);
+    if (!uid || !cids.length) {
+      toast("Select user and connections", false);
+      return;
+    }
+    const items = cids.map(cid => ({user_id: uid, connection_id: cid}));
+    const res = await fetch(API + "/acl/batch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(items)
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      toast(e.detail || "Error", false);
+      return;
+    }
+    const created = await res.json();
+    closeModal("acl-batch-modal");
+    toast("Added " + created.length + " rules");
+    fetchAcl();
+  }
+
+  // ===== Init =====
+  Promise.all([fetchConns(), fetchUsers(), fetchAcl()]);
+</script>
+</body>
+</html>

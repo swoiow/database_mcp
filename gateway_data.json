@@ -1,0 +1,13 @@
+{
+  "connections": [],
+  "users": [
+    {
+      "id": "c55d25a54979",
+      "username": "admin",
+      "token": "6cf7a870cf2c42519622c6d11f5eb47d",
+      "is_admin": true,
+      "created_at": "2026-06-07T10:20:01.261539+00:00"
+    }
+  ],
+  "acl": []
+}
