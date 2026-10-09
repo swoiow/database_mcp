@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta content="width=device-width, initial-scale=1.0" name="viewport">
-  <title>DB-MCP Gateway Admin</title>
+  <title>DB-MCP Gateway 管理后台</title>
   <style>
     :root {
       --bg: #f5f6fa;
@@ -45,7 +45,7 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh
@@ -85,7 +85,8 @@
     .topbar .stats {
       margin-left: auto;
       font-size: 13px;
-      color: var(--text2)
+      color: var(--text2);
+      white-space: nowrap
     }
 
     .topbar .theme-toggle {
@@ -206,6 +207,19 @@
       background: var(--border)
     }
 
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    .btn:disabled:hover {
+      background: var(--surface2)
+    }
+
+    .btn-primary:disabled:hover {
+      background: var(--accent)
+    }
+
     .search-box {
       padding: 8px 14px;
       border-radius: var(--radius);
@@ -252,7 +266,6 @@
       color: var(--text2);
       font-weight: 600;
       font-size: 12px;
-      text-transform: uppercase;
       letter-spacing: .3px;
       cursor: pointer;
       user-select: none;
@@ -455,7 +468,8 @@
 
     .actions-cell {
       display: flex;
-      gap: 6px
+      gap: 6px;
+      white-space: nowrap
     }
 
     .token-display {
@@ -506,16 +520,25 @@
     .mcp-path {
       font-size: 12px;
       color: var(--accent);
-      font-family: monospace
+      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+      white-space: nowrap
+    }
+
+    .mcp-path-label {
+      font-size: 11px;
+      color: var(--text2);
+      margin-right: 4px
     }
 
     .scope-badge {
+      display: inline-block;
       font-size: 11px;
       padding: 1px 6px;
       border-radius: 3px;
       background: var(--accent-surface);
       color: var(--accent);
-      font-weight: 600
+      font-weight: 600;
+      margin: 1px 2px 1px 0
     }
 
     .scope-badge.full {
@@ -542,112 +565,112 @@
 <div class="app">
   <div class="topbar">
     <h1>DB-MCP Gateway</h1>
-    <span class="badge">Admin</span>
+    <span class="badge">管理后台</span>
     <span class="stats" id="stats"></span>
-    <input type="password" id="admin-token" class="search-box" placeholder="Admin Token" title="ADMIN_TOKEN (env) for /admin/api" style="width:170px;margin-left:auto" oninput="saveAdminToken()">
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
+    <input type="password" id="admin-token" class="search-box" placeholder="Admin Token" title="ADMIN_TOKEN（环境变量），用于访问 /admin/api" style="width:170px" oninput="saveAdminToken()">
+    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题"></button>
   </div>
   <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('connections')">Connections</button>
-    <button class="tab-btn" onclick="switchTab('endpoints')">Endpoints</button>
-    <button class="tab-btn" onclick="switchTab('users')">Users</button>
+    <button class="tab-btn active" onclick="switchTab('connections')">连接</button>
+    <button class="tab-btn" onclick="switchTab('endpoints')">端点</button>
+    <button class="tab-btn" onclick="switchTab('users')">用户</button>
     <button class="tab-btn" onclick="switchTab('acl')">ACL</button>
   </div>
   <div class="main">
     <!-- Connections -->
     <div class="panel active" id="panel-connections">
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="openConnModal()">+ New</button>
-        <button class="btn btn-ghost" onclick="openConnImportModal()">Batch Import</button>
+        <button class="btn btn-primary" onclick="openConnModal()">+ 新建</button>
+        <button class="btn btn-ghost" onclick="openConnImportModal()">批量导入</button>
         <select class="filter-select" id="conn-type-filter" onchange="renderConns()">
-          <option value="">All Types</option>
+          <option value="">全部类型</option>
           <option value="mysql">MySQL</option>
           <option value="pgsql">PostgreSQL</option>
         </select>
-        <input class="search-box" id="conn-search" oninput="renderConns()" placeholder="Search...">
+        <input class="search-box" id="conn-search" oninput="renderConns()" placeholder="搜索别名 / 主机 / 库名…">
       </div>
       <table>
         <thead>
         <tr>
-          <th onclick="sortConns('alias')">Alias <span class="sort-arrow">▲</span></th>
-          <th>Type</th>
-          <th>Host</th>
-          <th>Port</th>
-          <th>User</th>
-          <th>Database</th>
-          <th>Endpoints</th>
-          <th>Actions</th>
+          <th onclick="sortConns('alias')">别名 <span class="sort-arrow" id="conn-sort-arrow">▲</span></th>
+          <th>类型</th>
+          <th>主机</th>
+          <th>端口</th>
+          <th>用户</th>
+          <th>数据库</th>
+          <th>端点数</th>
+          <th>操作</th>
         </tr>
         </thead>
         <tbody id="conn-tbody"></tbody>
       </table>
-      <div class="empty" id="conn-empty" style="display:none">No connections.</div>
+      <div class="empty" id="conn-empty" style="display:none">暂无连接，点击「新建」添加。</div>
       <div class="pagination" id="conn-pagination"></div>
     </div>
 
     <!-- Endpoints -->
     <div class="panel" id="panel-endpoints">
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="openEpModal()">+ New Endpoint</button>
+        <button class="btn btn-primary" onclick="openEpModal()">+ 新建端点</button>
         <select class="filter-select" id="ep-conn-filter" onchange="renderEps()">
-          <option value="">All Connections</option>
+          <option value="">全部连接</option>
         </select>
-        <input class="search-box" id="ep-search" oninput="renderEps()" placeholder="Search endpoints...">
+        <input class="search-box" id="ep-search" oninput="renderEps()" placeholder="搜索端点…">
       </div>
       <table>
         <thead>
         <tr>
-          <th>Alias</th>
-          <th>Connection</th>
-          <th>Type</th>
-          <th>Table Scope</th>
-          <th>MCP Path</th>
-          <th>Actions</th>
+          <th>别名</th>
+          <th>连接</th>
+          <th>类型</th>
+          <th>表范围</th>
+          <th>MCP 路径</th>
+          <th>操作</th>
         </tr>
         </thead>
         <tbody id="ep-tbody"></tbody>
       </table>
-      <div class="empty" id="ep-empty" style="display:none">No endpoints. Create one to expose an MCP server.</div>
+      <div class="empty" id="ep-empty" style="display:none">暂无端点。创建一个端点以对外提供 MCP 服务。</div>
     </div>
 
     <!-- Users -->
     <div class="panel" id="panel-users">
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="openUserModal()">+ New User</button>
+        <button class="btn btn-primary" onclick="openUserModal()">+ 新建用户</button>
       </div>
       <table>
         <thead>
         <tr>
-          <th>Username</th>
-          <th>Token</th>
-          <th>Role</th>
-          <th>Actions</th>
+          <th>用户名</th>
+          <th>令牌</th>
+          <th>角色</th>
+          <th>操作</th>
         </tr>
         </thead>
         <tbody id="user-tbody"></tbody>
       </table>
-      <div class="empty" id="user-empty" style="display:none">No users.</div>
+      <div class="empty" id="user-empty" style="display:none">暂无用户。</div>
     </div>
 
     <!-- ACL -->
     <div class="panel" id="panel-acl">
       <div class="toolbar">
-        <button class="btn btn-primary" onclick="openAclModal()">+ Add Rule</button>
-        <button class="btn btn-ghost" onclick="openAclBatchModal()">Batch Assign</button>
+        <button class="btn btn-primary" onclick="openAclModal()">+ 添加规则</button>
+        <button class="btn btn-ghost" onclick="openAclBatchModal()">批量分配</button>
       </div>
       <table>
         <thead>
         <tr>
-          <th>User</th>
-          <th>Endpoint</th>
-          <th>Connection</th>
-          <th>Table Scope</th>
-          <th>Actions</th>
+          <th>用户</th>
+          <th>端点</th>
+          <th>连接</th>
+          <th>表范围</th>
+          <th>操作</th>
         </tr>
         </thead>
         <tbody id="acl-tbody"></tbody>
       </table>
-      <div class="empty" id="acl-empty" style="display:none">No ACL rules.</div>
+      <div class="empty" id="acl-empty" style="display:none">暂无 ACL 规则。</div>
     </div>
   </div>
 </div>
@@ -655,25 +678,25 @@
 <!-- Connection Modal -->
 <div class="overlay" id="conn-modal">
   <div class="modal">
-    <h2 id="conn-modal-title">Add Connection</h2>
+    <h2 id="conn-modal-title">新建连接</h2>
     <input id="conn-edit-id" type="hidden">
-    <div class="field"><label>Alias</label><input id="conn-alias" placeholder="e.g. prod-mysql"></div>
-    <div class="field"><label>Type</label><select id="conn-type" onchange="autoPort()">
+    <div class="field"><label>别名</label><input id="conn-alias" placeholder="例如：prod-mysql"></div>
+    <div class="field"><label>类型</label><select id="conn-type" onchange="autoPort()">
       <option value="mysql">MySQL</option>
       <option value="pgsql">PostgreSQL</option>
     </select></div>
     <div class="field-row">
-      <div class="field"><label>Host</label><input id="conn-host" value="localhost"></div>
-      <div class="field"><label>Port</label><input id="conn-port" value="3306"></div>
+      <div class="field"><label>主机</label><input id="conn-host" value="localhost"></div>
+      <div class="field"><label>端口</label><input id="conn-port" value="3306"></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>User</label><input id="conn-user"></div>
-      <div class="field"><label>Password</label><input id="conn-pass" type="password"></div>
+      <div class="field"><label>用户名</label><input id="conn-user"></div>
+      <div class="field"><label>密码</label><input id="conn-pass" type="password"></div>
     </div>
-    <div class="field"><label>Database</label><input id="conn-db"></div>
+    <div class="field"><label>数据库</label><input id="conn-db"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('conn-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveConn()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('conn-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveConn()">保存</button>
     </div>
   </div>
 </div>
@@ -681,14 +704,14 @@
 <!-- Connection Batch Import -->
 <div class="overlay" id="conn-import-modal">
   <div class="modal">
-    <h2>Batch Import Connections</h2>
-    <div class="import-hint">JSON array. Required: alias, db_type, host, user, password, db_name.</div>
+    <h2>批量导入连接</h2>
+    <div class="import-hint">JSON 数组。必填：alias、db_type、host、user、password、db_name。</div>
     <div class="field"><textarea id="conn-import-json"
                                  placeholder='[{"alias":"prod-mysql","db_type":"mysql","host":"10.0.0.1","user":"root","password":"s","db_name":"orders"}]'></textarea>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('conn-import-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="doConnImport()">Import</button>
+      <button class="btn btn-ghost" onclick="closeModal('conn-import-modal')">取消</button>
+      <button class="btn btn-primary" onclick="doConnImport()">导入</button>
     </div>
   </div>
 </div>
@@ -696,18 +719,17 @@
 <!-- Endpoint Modal -->
 <div class="overlay" id="ep-modal">
   <div class="modal">
-    <h2 id="ep-modal-title">Add Endpoint</h2>
+    <h2 id="ep-modal-title">新建端点</h2>
     <input id="ep-edit-id" type="hidden">
-    <div class="field"><label>Endpoint Alias (unique, used in URL)</label><input id="ep-alias" placeholder="e.g. analytics-readonly"></div>
-    <div class="field"><label>Connection</label><select id="ep-conn"></select></div>
-    <div class="field"><label>Description</label><input id="ep-desc" placeholder="Optional description"></div>
-    <div class="section-label">Table Scope</div>
-    <div class="import-hint">Leave empty to allow all tables. One table per line. Formats: <code>table_name</code> or
-      <code>schema.table_name</code></div>
+    <div class="field"><label>端点别名（唯一，用于 URL）</label><input id="ep-alias" placeholder="例如：analytics-readonly"></div>
+    <div class="field"><label>连接</label><select id="ep-conn"></select></div>
+    <div class="field"><label>描述</label><input id="ep-desc" placeholder="选填"></div>
+    <div class="section-label">表范围</div>
+    <div class="import-hint">留空表示允许所有表。每行一个表。格式：<code>table_name</code> 或 <code>schema.table_name</code></div>
     <div class="field"><textarea id="ep-tables" placeholder="orders&#10;public.users&#10;analytics.events"></textarea></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('ep-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveEp()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('ep-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveEp()">保存</button>
     </div>
   </div>
 </div>
@@ -715,12 +737,12 @@
 <!-- User Modal -->
 <div class="overlay" id="user-modal">
   <div class="modal">
-    <h2>Add User</h2>
-    <div class="field"><label>Username</label><input id="user-username"></div>
-    <div class="field"><label><input id="user-admin" type="checkbox"> Is Admin</label></div>
+    <h2>新建用户</h2>
+    <div class="field"><label>用户名</label><input id="user-username"></div>
+    <div class="field"><label><input id="user-admin" type="checkbox" style="width:auto"> 设为管理员</label></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('user-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveUser()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveUser()">保存</button>
     </div>
   </div>
 </div>
@@ -728,12 +750,12 @@
 <!-- ACL Modal -->
 <div class="overlay" id="acl-modal">
   <div class="modal">
-    <h2>Add ACL Rule</h2>
-    <div class="field"><label>User</label><select id="acl-user"></select></div>
-    <div class="field"><label>Endpoint</label><select id="acl-ep"></select></div>
+    <h2>添加 ACL 规则</h2>
+    <div class="field"><label>用户</label><select id="acl-user"></select></div>
+    <div class="field"><label>端点</label><select id="acl-ep"></select></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('acl-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAcl()">Save</button>
+      <button class="btn btn-ghost" onclick="closeModal('acl-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveAcl()">保存</button>
     </div>
   </div>
 </div>
@@ -741,14 +763,12 @@
 <!-- ACL Batch Modal -->
 <div class="overlay" id="acl-batch-modal">
   <div class="modal">
-    <h2>Batch Assign ACL</h2>
-    <div class="field"><label>User</label><select id="acl-batch-user"></select></div>
-    <div class="field"><label>Endpoints (Ctrl/Cmd + click to multi-select)</label><select id="acl-batch-eps"
-                                                                                          multiple
-                                                                                          style="min-height:160px"></select></div>
+    <h2>批量分配 ACL</h2>
+    <div class="field"><label>用户</label><select id="acl-batch-user"></select></div>
+    <div class="field"><label>端点（按住 Ctrl/Cmd 多选）</label><select id="acl-batch-eps" multiple style="min-height:160px"></select></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAclBatch()">Assign</button>
+      <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveAclBatch()">分配</button>
     </div>
   </div>
 </div>
@@ -792,12 +812,35 @@
     return r;
   }
 
+  async function errText(r) {
+    try {
+      const e = await r.json();
+      return e.detail || ("HTTP " + r.status)
+    } catch (_) {
+      return "HTTP " + r.status
+    }
+  }
+
   function toast(m, ok = true) {
     const e = document.createElement("div");
     e.className = "toast " + (ok ? "toast-ok" : "toast-err");
     e.textContent = m;
     document.getElementById("toast-area").appendChild(e);
     setTimeout(() => e.remove(), 3000)
+  }
+
+  function copyText(t) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
+    // Fallback for non-secure contexts (plain http): hidden textarea + execCommand.
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (_) {}
+    ta.remove();
+    return Promise.resolve()
   }
 
   function switchTab(n) {
@@ -807,12 +850,24 @@
   }
 
   function openModal(id) {
-    document.getElementById(id).classList.add("open")
+    const m = document.getElementById(id);
+    m.classList.add("open");
+    // Focus the first editable field for faster keyboard input.
+    const f = m.querySelector("input:not([type=hidden]), select, textarea");
+    if (f) setTimeout(() => f.focus(), 60)
   }
 
   function closeModal(id) {
     document.getElementById(id).classList.remove("open")
   }
+
+  // Esc closes any open modal; clicking the dimmed overlay also closes it.
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(o => o.classList.remove("open"))
+  });
+  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("mousedown", e => {
+    if (e.target === o) o.classList.remove("open")
+  }));
 
   function esc(s) {
     const d = document.createElement("div");
@@ -821,7 +876,7 @@
   }
 
   function updateStats() {
-    document.getElementById("stats").textContent = allConns.length + " connections | " + allEps.length + " endpoints | " + allUsers.length + " users | " + allAcl.length + " ACL"
+    document.getElementById("stats").textContent = allConns.length + " 个连接 | " + allEps.length + " 个端点 | " + allUsers.length + " 个用户 | " + allAcl.length + " 条 ACL"
   }
 
   // ============= Connections =============
@@ -838,11 +893,17 @@
     })
   }
 
+  function renderSortArrow() {
+    const el = document.getElementById("conn-sort-arrow");
+    if (el) el.textContent = connSortDir === 1 ? "▲" : "▼"
+  }
+
   function renderConns() {
     const f = getFilteredConns(), tp = Math.max(1, Math.ceil(f.length / PAGE));
     if (connPage > tp) connPage = tp;
     const s = (connPage - 1) * PAGE, p = f.slice(s, s + PAGE), tb = document.getElementById("conn-tbody"),
         em = document.getElementById("conn-empty");
+    renderSortArrow();
     if (!f.length) {
       tb.innerHTML = "";
       em.style.display = "";
@@ -853,13 +914,13 @@
     em.style.display = "none";
     tb.innerHTML = p.map(c => {
       const epCount = allEps.filter(e => e.connection_id === c.id).length;
-      return '<tr><td><strong>' + esc(c.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + c.id + '</span></td><td><span class="tag tag-' + c.db_type + '">' + c.db_type + '</span></td><td class="mono">' + esc(c.host) + '</td><td class="mono">' + esc(c.port) + '</td><td class="mono">' + esc(c.user) + '</td><td class="mono">' + esc(c.db_name) + '</td><td>' + epCount + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editConn(' + JSON.stringify(c).replace(/'/g, "&#39;") + ")'>Edit</button> <button class=\"btn btn-danger btn-sm\" onclick=\"deleteConn('" + c.id + "')\">Del</button></td></tr>"
+      return '<tr><td><strong>' + esc(c.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + c.id + '</span></td><td><span class="tag tag-' + c.db_type + '">' + c.db_type + '</span></td><td class="mono">' + esc(c.host) + '</td><td class="mono">' + esc(c.port) + '</td><td class="mono">' + esc(c.user) + '</td><td class="mono">' + esc(c.db_name) + '</td><td>' + epCount + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editConn(' + JSON.stringify(c).replace(/'/g, "&#39;") + "')\">编辑</button><button class=\"btn btn-danger btn-sm\" title=\"删除连接\" onclick=\"deleteConn('" + c.id + "')\">删除</button></td></tr>"
     }).join("");
     const pg = document.getElementById("conn-pagination");
     if (tp <= 1) {
       pg.innerHTML = ""
     } else {
-      pg.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="connPage=1;renderConns()" ' + (connPage === 1 ? "disabled" : "") + ">First</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage--;renderConns()\" " + (connPage === 1 ? "disabled" : "") + ">Prev</button><span class=\"page-info\">" + connPage + "/" + tp + '</span><button class="btn btn-ghost btn-sm" onclick="connPage++;renderConns()" ' + (connPage === tp ? "disabled" : "") + ">Next</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage=" + tp + ';renderConns()" ' + (connPage === tp ? "disabled" : "") + ">Last</button>"
+      pg.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="connPage=1;renderConns()" ' + (connPage === 1 ? "disabled" : "") + ">首页</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage--;renderConns()\" " + (connPage === 1 ? "disabled" : "") + ">上一页</button><span class=\"page-info\">" + connPage + "/" + tp + '</span><button class="btn btn-ghost btn-sm" onclick="connPage++;renderConns()" ' + (connPage === tp ? "disabled" : "") + ">下一页</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage=" + tp + ';renderConns()" ' + (connPage === tp ? "disabled" : "") + ">末页</button>"
     }
     updateStats()
   }
@@ -877,7 +938,7 @@
   }
 
   function openConnModal() {
-    document.getElementById("conn-modal-title").textContent = "Add Connection";
+    document.getElementById("conn-modal-title").textContent = "新建连接";
     document.getElementById("conn-edit-id").value = "";
     ["conn-alias", "conn-host", "conn-user", "conn-pass", "conn-db"].forEach(i => document.getElementById(i).value = "");
     document.getElementById("conn-pass").placeholder = "";
@@ -887,7 +948,7 @@
   }
 
   function editConn(c) {
-    document.getElementById("conn-modal-title").textContent = "Edit Connection";
+    document.getElementById("conn-modal-title").textContent = "编辑连接";
     document.getElementById("conn-edit-id").value = c.id;
     document.getElementById("conn-alias").value = c.alias;
     document.getElementById("conn-type").value = c.db_type;
@@ -920,19 +981,22 @@
       body: JSON.stringify(b)
     }) : await apifetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
-      const e = await r.json();
-      toast(e.detail || "Error", false);
+      toast("保存失败：" + await errText(r), false);
       return
     }
     closeModal("conn-modal");
-    toast(eid ? "Updated" : "Created");
+    toast(eid ? "已更新" : "已创建");
     fetchConns()
   }
 
   async function deleteConn(id) {
-    if (!confirm("Delete connection and all its endpoints/ACL?")) return;
-    await apifetch(API + "/connections/" + id, {method: "DELETE"});
-    toast("Deleted");
+    if (!confirm("删除该连接及其所有端点和 ACL 规则？")) return;
+    const r = await apifetch(API + "/connections/" + id, {method: "DELETE"});
+    if (!r.ok) {
+      toast("删除失败：" + await errText(r), false);
+      return
+    }
+    toast("已删除");
     fetchConns();
     fetchEps();
     fetchAcl()
@@ -948,11 +1012,11 @@
     try {
       items = JSON.parse(document.getElementById("conn-import-json").value)
     } catch (e) {
-      toast("Invalid JSON", false);
+      toast("JSON 格式无效", false);
       return
     }
     if (!Array.isArray(items)) {
-      toast("Must be array", false);
+      toast("必须是 JSON 数组", false);
       return
     }
     items = items.map(i => ({...i, port: i.port || (i.db_type === "mysql" ? "3306" : "5432"), host: i.host || "localhost"}));
@@ -962,11 +1026,11 @@
       body: JSON.stringify(items)
     });
     if (!r.ok) {
-      toast("Error", false);
+      toast("导入失败：" + await errText(r), false);
       return
     }
     closeModal("conn-import-modal");
-    toast("Imported " + (await r.json()).length);
+    toast("已导入 " + (await r.json()).length + " 个连接");
     fetchConns()
   }
 
@@ -980,7 +1044,7 @@
   function updateConnFilter() {
     const sel = document.getElementById("ep-conn-filter");
     const v = sel.value;
-    sel.innerHTML = '<option value="">All Connections</option>' + allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ')</option>').join("");
+    sel.innerHTML = '<option value="">全部连接</option>' + allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ')</option>').join("");
     sel.value = v
   }
 
@@ -998,16 +1062,17 @@
     const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
     tb.innerHTML = filtered.map(e => {
       const c = connMap[e.connection_id];
-      const scope = e.allowed_tables.length ? e.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join(" ") : '<span class="scope-badge full">ALL TABLES</span>';
+      const scope = e.allowed_tables.length ? e.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join("") : '<span class="scope-badge full">全部表</span>';
       const dbt = c ? c.db_type : "?";
-      const path = "/" + dbt + "/" + e.alias + "/sse";
-      return '<tr><td><strong>' + esc(e.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + e.id + '</span></td><td>' + (c ? esc(c.alias) : "?") + '</td><td>' + (c ? '<span class="tag tag-' + c.db_type + '">' + c.db_type + '</span>' : "") + '</td><td style="max-width:240px">' + scope + '</td><td><span class="mcp-path">' + path + '</span></td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editEp(' + JSON.stringify(e).replace(/'/g, "&#39;") + ")'>Edit</button> <button class=\"btn btn-danger btn-sm\" onclick=\"deleteEp('" + e.id + "')\">Del</button></td></tr>"
+      const base = "/" + dbt + "/" + e.alias;
+      const paths = '<span class="mcp-path-label">SSE</span><span class="mcp-path">' + base + '/sse</span><br><span class="mcp-path-label">HTTP</span><span class="mcp-path">' + base + '/mcp</span>';
+      return '<tr><td><strong>' + esc(e.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + e.id + '</span></td><td>' + (c ? esc(c.alias) : "?") + '</td><td>' + (c ? '<span class="tag tag-' + c.db_type + '">' + c.db_type + '</span>' : "") + '</td><td style="max-width:240px">' + scope + '</td><td>' + paths + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editEp(' + JSON.stringify(e).replace(/'/g, "&#39;") + "')\">编辑</button><button class=\"btn btn-danger btn-sm\" title=\"删除端点\" onclick=\"deleteEp('" + e.id + "')\">删除</button></td></tr>"
     }).join("");
     updateStats()
   }
 
   function openEpModal() {
-    document.getElementById("ep-modal-title").textContent = "Add Endpoint";
+    document.getElementById("ep-modal-title").textContent = "新建端点";
     document.getElementById("ep-edit-id").value = "";
     document.getElementById("ep-alias").value = "";
     document.getElementById("ep-desc").value = "";
@@ -1017,12 +1082,12 @@
   }
 
   function editEp(e) {
-    document.getElementById("ep-modal-title").textContent = "Edit Endpoint";
+    document.getElementById("ep-modal-title").textContent = "编辑端点";
     document.getElementById("ep-edit-id").value = e.id;
     document.getElementById("ep-alias").value = e.alias;
     document.getElementById("ep-desc").value = e.description || "";
     document.getElementById("ep-tables").value = e.allowed_tables.join("\n");
-    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '"' + (c.id === e.connection_id ? " selected" : "") + '>>' + esc(c.alias) + " (" + c.db_type + ")</option>").join("");
+    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '"' + (c.id === e.connection_id ? " selected" : "") + '>' + esc(c.alias) + " (" + c.db_type + ")</option>").join("");
     openModal("ep-modal")
   }
 
@@ -1041,19 +1106,22 @@
       body: JSON.stringify(b)
     }) : await apifetch(API + "/endpoints", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
-      const e = await r.json();
-      toast(e.detail || "Error", false);
+      toast("保存失败：" + await errText(r), false);
       return
     }
     closeModal("ep-modal");
-    toast(eid ? "Updated" : "Created");
+    toast(eid ? "已更新" : "已创建");
     fetchEps()
   }
 
   async function deleteEp(id) {
-    if (!confirm("Delete endpoint and related ACL?")) return;
-    await apifetch(API + "/endpoints/" + id, {method: "DELETE"});
-    toast("Deleted");
+    if (!confirm("删除该端点及其相关 ACL 规则？")) return;
+    const r = await apifetch(API + "/endpoints/" + id, {method: "DELETE"});
+    if (!r.ok) {
+      toast("删除失败：" + await errText(r), false);
+      return
+    }
+    toast("已删除");
     fetchEps();
     fetchAcl()
   }
@@ -1073,7 +1141,7 @@
       return
     }
     em.style.display = "none";
-    tb.innerHTML = allUsers.map(u => '<tr><td><strong>' + esc(u.username) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + u.id + '</span></td><td><div class="token-display"><code title="Click to copy" onclick="copyToken(\'' + u.token + "')\">" + esc(u.token) + '</code> <button class="btn btn-ghost btn-sm" onclick="regenToken(\'' + u.id + "')\">Regen</button></div></td><td>" + (u.is_admin ? '<span class="tag tag-admin">admin</span>' : "user") + "</td><td class=\"actions-cell\"><button class=\"btn btn-danger btn-sm\" onclick=\"deleteUser('" + u.id + "')\">Del</button></td></tr>").join("");
+    tb.innerHTML = allUsers.map(u => '<tr><td><strong>' + esc(u.username) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + u.id + '</span></td><td><div class="token-display"><code title="点击复制" onclick="copyToken(\'' + u.token + "')\">" + esc(u.token) + '</code><button class="btn btn-ghost btn-sm" title="重新生成令牌" onclick="regenToken(\'' + u.id + "')\">重置</button></div></td><td>" + (u.is_admin ? '<span class="tag tag-admin">管理员</span>' : "用户") + "</td><td class=\"actions-cell\"><button class=\"btn btn-danger btn-sm\" title=\"删除用户\" onclick=\"deleteUser('" + u.id + "')\">删除</button></td></tr>").join("");
     updateStats()
   }
 
@@ -1087,32 +1155,40 @@
     const b = {username: document.getElementById("user-username").value.trim(), is_admin: document.getElementById("user-admin").checked};
     const r = await apifetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
-      const e = await r.json();
-      toast(e.detail || "Error", false);
+      toast("保存失败：" + await errText(r), false);
       return
     }
     closeModal("user-modal");
-    toast("Created");
+    toast("已创建");
     fetchUsers()
   }
 
   async function deleteUser(id) {
-    if (!confirm("Delete user?")) return;
-    await apifetch(API + "/users/" + id, {method: "DELETE"});
-    toast("Deleted");
+    if (!confirm("删除该用户？其 ACL 规则将一并移除。")) return;
+    const r = await apifetch(API + "/users/" + id, {method: "DELETE"});
+    if (!r.ok) {
+      toast("删除失败：" + await errText(r), false);
+      return
+    }
+    toast("已删除");
     fetchUsers();
     fetchAcl()
   }
 
   function copyToken(t) {
-    navigator.clipboard.writeText(t);
-    toast("Copied")
+    copyText(t).then(() => toast("令牌已复制"))
   }
 
   async function regenToken(id) {
-    if (!confirm("Regenerate token?")) return;
-    await apifetch(API + "/users/" + id + "/regen-token", {method: "POST"});
-    toast("Regenerated");
+    if (!confirm("重新生成令牌？旧令牌将立即失效。")) return;
+    const r = await apifetch(API + "/users/" + id + "/regen-token", {method: "POST"});
+    if (!r.ok) {
+      toast("操作失败：" + await errText(r), false);
+      return
+    }
+    const u = await r.json();
+    await copyText(u.token);
+    toast("新令牌已复制到剪贴板");
     fetchUsers()
   }
 
@@ -1137,8 +1213,8 @@
     tb.innerHTML = allAcl.map(a => {
       const ep = epMap[a.endpoint_id];
       const c = ep ? connMap[ep.connection_id] : null;
-      const scope = ep && ep.allowed_tables.length ? ep.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join(" ") : '<span class="scope-badge full">ALL</span>';
-      return '<tr><td>' + esc(userMap[a.user_id] || a.user_id) + '</td><td>' + (ep ? esc(ep.alias) : a.endpoint_id) + '</td><td>' + (c ? esc(c.alias) : "") + '</td><td>' + scope + '</td><td><button class="btn btn-danger btn-sm" onclick="deleteAclEntry(\'' + a.id + "')\">Remove</button></td></tr>"
+      const scope = ep && ep.allowed_tables.length ? ep.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join("") : '<span class="scope-badge full">全部</span>';
+      return '<tr><td>' + esc(userMap[a.user_id] || a.user_id) + '</td><td>' + (ep ? esc(ep.alias) : a.endpoint_id) + '</td><td>' + (c ? esc(c.alias) : "") + '</td><td>' + scope + '</td><td class="actions-cell"><button class="btn btn-danger btn-sm" title="移除规则" onclick="deleteAclEntry(\'' + a.id + "')\">删除</button></td></tr>"
     }).join("");
     updateStats()
   }
@@ -1155,23 +1231,27 @@
   async function saveAcl() {
     const uid = document.getElementById("acl-user").value, eid = document.getElementById("acl-ep").value;
     if (!uid || !eid) {
-      toast("Select both", false);
+      toast("请选择用户和端点", false);
       return
     }
     const r = await apifetch(API + "/acl?user_id=" + uid + "&endpoint_id=" + eid, {method: "POST"});
     if (!r.ok) {
-      const e = await r.json();
-      toast(e.detail || "Error", false);
+      toast("保存失败：" + await errText(r), false);
       return
     }
     closeModal("acl-modal");
-    toast("Added");
+    toast("已添加");
     fetchAcl()
   }
 
   async function deleteAclEntry(id) {
-    await apifetch(API + "/acl/" + id, {method: "DELETE"});
-    toast("Removed");
+    if (!confirm("移除这条 ACL 规则？")) return;
+    const r = await apifetch(API + "/acl/" + id, {method: "DELETE"});
+    if (!r.ok) {
+      toast("删除失败：" + await errText(r), false);
+      return
+    }
+    toast("已移除");
     fetchAcl()
   }
 
@@ -1188,17 +1268,17 @@
     const uid = document.getElementById("acl-batch-user").value;
     const eids = Array.from(document.getElementById("acl-batch-eps").selectedOptions).map(o => o.value);
     if (!uid || !eids.length) {
-      toast("Select user and endpoints", false);
+      toast("请选择用户和端点", false);
       return
     }
     const items = eids.map(eid => ({user_id: uid, endpoint_id: eid}));
     const r = await apifetch(API + "/acl/batch", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(items)});
     if (!r.ok) {
-      toast("Error", false);
+      toast("操作失败：" + await errText(r), false);
       return
     }
     closeModal("acl-batch-modal");
-    toast("Added " + (await r.json()).length + " rules");
+    toast("已添加 " + (await r.json()).length + " 条规则");
     fetchAcl()
   }
 
