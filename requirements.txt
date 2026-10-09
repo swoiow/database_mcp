@@ -1,0 +1,10 @@
+mcp>=2  # v2 API: MCPServer (2.x has no 'server' extra; server deps are hard deps now)
+sqlalchemy>=2.0.30
+asyncpg>=0.29.0
+aiomysql>=0.2.0
+python-dotenv>=1.0.1
+uvicorn>=0.30.0
+fastapi>=0.110.0
+pydantic>=2.0
+sqlglot>=25.0
+greenlet>=3.0  # required by SQLAlchemy asyncio at runtime
