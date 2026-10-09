@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>DB-MCP Gateway Admin</title>
+  <style>
+    :root {
+      --bg: #f5f6fa;
+      --surface: #fff;
+      --surface2: #f0f1f5;
+      --border: #e0e2ea;
+      --text: #1a1d2e;
+      --text2: #6b7084;
+      --accent: #4a7de6;
+      --accent2: #3b6dd4;
+      --accent-surface: #eef3fd;
+      --danger: #d63a3f;
+      --danger-surface: #fdeaeb;
+      --success: #1f8a56;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0, 0, 0, .06);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3347;
+      --text: #e2e4ed;
+      --text2: #9ca0b0;
+      --accent: #5b8af5;
+      --accent2: #4a7de6;
+      --accent-surface: #1a2744;
+      --danger: #e5484d;
+      --danger-surface: #2e1a1b;
+      --success: #30a46c;
+      --shadow: none;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow)
+    }
+
+    .topbar h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -.3px
+    }
+
+    .topbar .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 500
+    }
+
+    .topbar .stats {
+      margin-left: auto;
+      font-size: 13px;
+      color: var(--text2)
+    }
+
+    .topbar .theme-toggle {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text2);
+      font-size: 16px;
+      transition: background .15s
+    }
+
+    .topbar .theme-toggle:hover {
+      background: var(--border);
+      color: var(--text)
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 0 28px
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      padding: 11px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .15s
+    }
+
+    .tab-btn:hover {
+      color: var(--text)
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 500
+    }
+
+    .main {
+      flex: 1;
+      padding: 24px 28px
+    }
+
+    .panel {
+      display: none
+    }
+
+    .panel.active {
+      display: block
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff
+    }
+
+    .btn-primary:hover {
+      background: var(--accent2)
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger)
+    }
+
+    .btn-danger:hover {
+      background: var(--danger-surface)
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 12px
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border)
+    }
+
+    .btn-ghost:hover {
+      background: var(--border)
+    }
+
+    .search-box {
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      width: 220px
+    }
+
+    .search-box:focus {
+      border-color: var(--accent)
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border)
+    }
+
+    th, td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    th {
+      background: var(--surface2);
+      color: var(--text2);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap
+    }
+
+    th:hover {
+      color: var(--text)
+    }
+
+    th .sort-arrow {
+      font-size: 10px;
+      margin-left: 4px;
+      opacity: .3
+    }
+
+    th.sorted .sort-arrow {
+      opacity: 1;
+      color: var(--accent)
+    }
+
+    tr:hover td {
+      background: var(--accent-surface)
+    }
+
+    .mono {
+      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+      font-size: 12px
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600
+    }
+
+    .tag-mysql {
+      background: #e1edfb;
+      color: #2a6cc4
+    }
+
+    .tag-pgsql {
+      background: #daf5e7;
+      color: #1a7f4b
+    }
+
+    .tag-admin {
+      background: #fef3d6;
+      color: #946800
+    }
+
+    [data-theme="dark"] .tag-mysql {
+      background: #1a3a5c;
+      color: #5ba8f5
+    }
+
+    [data-theme="dark"] .tag-pgsql {
+      background: #1a3c2e;
+      color: #4ade80
+    }
+
+    [data-theme="dark"] .tag-admin {
+      background: #3c2e1a;
+      color: #f5a623
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, .3);
+      align-items: center;
+      justify-content: center
+    }
+
+    [data-theme="dark"] .overlay {
+      background: rgba(0, 0, 0, .55)
+    }
+
+    .overlay.open {
+      display: flex
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      width: 580px;
+      max-width: 95vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .12)
+    }
+
+    .modal h2 {
+      font-size: 16px;
+      margin-bottom: 18px;
+      font-weight: 600
+    }
+
+    .field {
+      margin-bottom: 14px
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 4px;
+      font-weight: 500
+    }
+
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      outline: none
+    }
+
+    .field textarea {
+      min-height: 80px;
+      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+      font-size: 12px;
+      resize: vertical
+    }
+
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-surface)
+    }
+
+    .field-row {
+      display: flex;
+      gap: 12px
+    }
+
+    .field-row .field {
+      flex: 1
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 18px
+    }
+
+    .toast-area {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px
+    }
+
+    .toast {
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      animation: fadeIn .2s
+    }
+
+    .toast-ok {
+      background: var(--success);
+      color: #fff
+    }
+
+    .toast-err {
+      background: var(--danger);
+      color: #fff
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px)
+      }
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .empty {
+      color: var(--text2);
+      font-size: 14px;
+      padding: 40px 0;
+      text-align: center
+    }
+
+    .actions-cell {
+      display: flex;
+      gap: 6px
+    }
+
+    .token-display {
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .token-display code {
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: all;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: inline-block
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px
+    }
+
+    .pagination .btn {
+      min-width: 36px;
+      justify-content: center
+    }
+
+    .pagination .page-info {
+      font-size: 13px;
+      color: var(--text2)
+    }
+
+    .import-hint {
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 8px;
+      line-height: 1.5
+    }
+
+    .mcp-path {
+      font-size: 12px;
+      color: var(--accent);
+      font-family: monospace
+    }
+
+    .scope-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: var(--accent-surface);
+      color: var(--accent);
+      font-weight: 600
+    }
+
+    .scope-badge.full {
+      background: #e8f5e9;
+      color: #2e7d32
+    }
+
+    [data-theme="dark"] .scope-badge.full {
+      background: #1a3c2e;
+      color: #4ade80
+    }
+
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 14px 0 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border)
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>DB-MCP Gateway</h1>
+    <span class="badge">Admin</span>
+    <span class="stats" id="stats"></span>
+    <input type="password" id="admin-token" class="search-box" placeholder="Admin Token" title="ADMIN_TOKEN (env) for /admin/api" style="width:170px;margin-left:auto" oninput="saveAdminToken()">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('connections')">Connections</button>
+    <button class="tab-btn" onclick="switchTab('endpoints')">Endpoints</button>
+    <button class="tab-btn" onclick="switchTab('users')">Users</button>
+    <button class="tab-btn" onclick="switchTab('acl')">ACL</button>
+  </div>
+  <div class="main">
+    <!-- Connections -->
+    <div class="panel active" id="panel-connections">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openConnModal()">+ New</button>
+        <button class="btn btn-ghost" onclick="openConnImportModal()">Batch Import</button>
+        <select class="filter-select" id="conn-type-filter" onchange="renderConns()">
+          <option value="">All Types</option>
+          <option value="mysql">MySQL</option>
+          <option value="pgsql">PostgreSQL</option>
+        </select>
+        <input class="search-box" id="conn-search" oninput="renderConns()" placeholder="Search...">
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th onclick="sortConns('alias')">Alias <span class="sort-arrow">▲</span></th>
+          <th>Type</th>
+          <th>Host</th>
+          <th>Port</th>
+          <th>User</th>
+          <th>Database</th>
+          <th>Endpoints</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="conn-tbody"></tbody>
+      </table>
+      <div class="empty" id="conn-empty" style="display:none">No connections.</div>
+      <div class="pagination" id="conn-pagination"></div>
+    </div>
+
+    <!-- Endpoints -->
+    <div class="panel" id="panel-endpoints">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openEpModal()">+ New Endpoint</button>
+        <select class="filter-select" id="ep-conn-filter" onchange="renderEps()">
+          <option value="">All Connections</option>
+        </select>
+        <input class="search-box" id="ep-search" oninput="renderEps()" placeholder="Search endpoints...">
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th>Alias</th>
+          <th>Connection</th>
+          <th>Type</th>
+          <th>Table Scope</th>
+          <th>MCP Path</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="ep-tbody"></tbody>
+      </table>
+      <div class="empty" id="ep-empty" style="display:none">No endpoints. Create one to expose an MCP server.</div>
+    </div>
+
+    <!-- Users -->
+    <div class="panel" id="panel-users">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openUserModal()">+ New User</button>
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th>Username</th>
+          <th>Token</th>
+          <th>Role</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="user-tbody"></tbody>
+      </table>
+      <div class="empty" id="user-empty" style="display:none">No users.</div>
+    </div>
+
+    <!-- ACL -->
+    <div class="panel" id="panel-acl">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="openAclModal()">+ Add Rule</button>
+        <button class="btn btn-ghost" onclick="openAclBatchModal()">Batch Assign</button>
+      </div>
+      <table>
+        <thead>
+        <tr>
+          <th>User</th>
+          <th>Endpoint</th>
+          <th>Connection</th>
+          <th>Table Scope</th>
+          <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="acl-tbody"></tbody>
+      </table>
+      <div class="empty" id="acl-empty" style="display:none">No ACL rules.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Modal -->
+<div class="overlay" id="conn-modal">
+  <div class="modal">
+    <h2 id="conn-modal-title">Add Connection</h2>
+    <input id="conn-edit-id" type="hidden">
+    <div class="field"><label>Alias</label><input id="conn-alias" placeholder="e.g. prod-mysql"></div>
+    <div class="field"><label>Type</label><select id="conn-type" onchange="autoPort()">
+      <option value="mysql">MySQL</option>
+      <option value="pgsql">PostgreSQL</option>
+    </select></div>
+    <div class="field-row">
+      <div class="field"><label>Host</label><input id="conn-host" value="localhost"></div>
+      <div class="field"><label>Port</label><input id="conn-port" value="3306"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>User</label><input id="conn-user"></div>
+      <div class="field"><label>Password</label><input id="conn-pass" type="password"></div>
+    </div>
+    <div class="field"><label>Database</label><input id="conn-db"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('conn-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveConn()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Batch Import -->
+<div class="overlay" id="conn-import-modal">
+  <div class="modal">
+    <h2>Batch Import Connections</h2>
+    <div class="import-hint">JSON array. Required: alias, db_type, host, user, password, db_name.</div>
+    <div class="field"><textarea id="conn-import-json"
+                                 placeholder='[{"alias":"prod-mysql","db_type":"mysql","host":"10.0.0.1","user":"root","password":"s","db_name":"orders"}]'></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('conn-import-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="doConnImport()">Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Endpoint Modal -->
+<div class="overlay" id="ep-modal">
+  <div class="modal">
+    <h2 id="ep-modal-title">Add Endpoint</h2>
+    <input id="ep-edit-id" type="hidden">
+    <div class="field"><label>Endpoint Alias (unique, used in URL)</label><input id="ep-alias" placeholder="e.g. analytics-readonly"></div>
+    <div class="field"><label>Connection</label><select id="ep-conn"></select></div>
+    <div class="field"><label>Description</label><input id="ep-desc" placeholder="Optional description"></div>
+    <div class="section-label">Table Scope</div>
+    <div class="import-hint">Leave empty to allow all tables. One table per line. Formats: <code>table_name</code> or
+      <code>schema.table_name</code></div>
+    <div class="field"><textarea id="ep-tables" placeholder="orders&#10;public.users&#10;analytics.events"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('ep-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEp()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- User Modal -->
+<div class="overlay" id="user-modal">
+  <div class="modal">
+    <h2>Add User</h2>
+    <div class="field"><label>Username</label><input id="user-username"></div>
+    <div class="field"><label><input id="user-admin" type="checkbox"> Is Admin</label></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('user-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACL Modal -->
+<div class="overlay" id="acl-modal">
+  <div class="modal">
+    <h2>Add ACL Rule</h2>
+    <div class="field"><label>User</label><select id="acl-user"></select></div>
+    <div class="field"><label>Endpoint</label><select id="acl-ep"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('acl-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAcl()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACL Batch Modal -->
+<div class="overlay" id="acl-batch-modal">
+  <div class="modal">
+    <h2>Batch Assign ACL</h2>
+    <div class="field"><label>User</label><select id="acl-batch-user"></select></div>
+    <div class="field"><label>Endpoints (Ctrl/Cmd + click to multi-select)</label><select id="acl-batch-eps"
+                                                                                          multiple
+                                                                                          style="min-height:160px"></select></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAclBatch()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-area" id="toast-area"></div>
+
+<script>
+  const API = "/admin/api";
+  const PAGE = 20;
+  let allConns = [], allEps = [], allUsers = [], allAcl = [];
+  let connPage = 1, connSortKey = "alias", connSortDir = 1;
+
+  // Theme
+  function getTheme() {
+    return localStorage.getItem("dbmcp-theme") || "light"
+  }
+
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    document.querySelector(".theme-toggle").textContent = t === "dark" ? "☀️" : "🌙";
+    localStorage.setItem("dbmcp-theme", t)
+  }
+
+  function toggleTheme() {
+    applyTheme(getTheme() === "dark" ? "light" : "dark")
+  }
+
+  applyTheme(getTheme());
+
+  // ---- Admin auth: attach ADMIN_TOKEN as Bearer header on every API call ----
+  function getAdminToken() { return localStorage.getItem("dbmcp-admin-token") || ""; }
+  function saveAdminToken() { localStorage.setItem("dbmcp-admin-token", document.getElementById("admin-token").value.trim()); }
+  async function apifetch(url, opts) {
+    opts = opts || {};
+    const headers = Object.assign({}, opts.headers || {});
+    const t = getAdminToken();
+    if (t) headers["Authorization"] = "Bearer " + t;
+    opts.headers = headers;
+    const r = await fetch(url, opts);
+    if (r.status === 401) toast("Admin Token 缺失或无效：请在右上角输入后重试", false);
+    return r;
+  }
+
+  function toast(m, ok = true) {
+    const e = document.createElement("div");
+    e.className = "toast " + (ok ? "toast-ok" : "toast-err");
+    e.textContent = m;
+    document.getElementById("toast-area").appendChild(e);
+    setTimeout(() => e.remove(), 3000)
+  }
+
+  function switchTab(n) {
+    document.querySelectorAll(".tab-btn").forEach((b, i) => b.classList.toggle("active", ["connections", "endpoints", "users", "acl"][i] === n));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + n).classList.add("active")
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.add("open")
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove("open")
+  }
+
+  function esc(s) {
+    const d = document.createElement("div");
+    d.textContent = s || "";
+    return d.innerHTML
+  }
+
+  function updateStats() {
+    document.getElementById("stats").textContent = allConns.length + " connections | " + allEps.length + " endpoints | " + allUsers.length + " users | " + allAcl.length + " ACL"
+  }
+
+  // ============= Connections =============
+  async function fetchConns() {
+    allConns = await (await apifetch(API + "/connections")).json();
+    renderConns()
+  }
+
+  function getFilteredConns() {
+    const t = document.getElementById("conn-type-filter").value, q = document.getElementById("conn-search").value.toLowerCase().trim();
+    return allConns.filter(c => (!t || c.db_type === t) && (!q || (c.alias + "" + c.host + "" + c.db_name).toLowerCase().includes(q))).sort((a, b) => {
+      const va = a[connSortKey] || "", vb = b[connSortKey] || "";
+      return va < vb ? -connSortDir : va > vb ? connSortDir : 0
+    })
+  }
+
+  function renderConns() {
+    const f = getFilteredConns(), tp = Math.max(1, Math.ceil(f.length / PAGE));
+    if (connPage > tp) connPage = tp;
+    const s = (connPage - 1) * PAGE, p = f.slice(s, s + PAGE), tb = document.getElementById("conn-tbody"),
+        em = document.getElementById("conn-empty");
+    if (!f.length) {
+      tb.innerHTML = "";
+      em.style.display = "";
+      document.getElementById("conn-pagination").innerHTML = "";
+      updateStats();
+      return
+    }
+    em.style.display = "none";
+    tb.innerHTML = p.map(c => {
+      const epCount = allEps.filter(e => e.connection_id === c.id).length;
+      return '<tr><td><strong>' + esc(c.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + c.id + '</span></td><td><span class="tag tag-' + c.db_type + '">' + c.db_type + '</span></td><td class="mono">' + esc(c.host) + '</td><td class="mono">' + esc(c.port) + '</td><td class="mono">' + esc(c.user) + '</td><td class="mono">' + esc(c.db_name) + '</td><td>' + epCount + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editConn(' + JSON.stringify(c).replace(/'/g, "&#39;") + ")'>Edit</button> <button class=\"btn btn-danger btn-sm\" onclick=\"deleteConn('" + c.id + "')\">Del</button></td></tr>"
+    }).join("");
+    const pg = document.getElementById("conn-pagination");
+    if (tp <= 1) {
+      pg.innerHTML = ""
+    } else {
+      pg.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="connPage=1;renderConns()" ' + (connPage === 1 ? "disabled" : "") + ">First</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage--;renderConns()\" " + (connPage === 1 ? "disabled" : "") + ">Prev</button><span class=\"page-info\">" + connPage + "/" + tp + '</span><button class="btn btn-ghost btn-sm" onclick="connPage++;renderConns()" ' + (connPage === tp ? "disabled" : "") + ">Next</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage=" + tp + ';renderConns()" ' + (connPage === tp ? "disabled" : "") + ">Last</button>"
+    }
+    updateStats()
+  }
+
+  function sortConns(k) {
+    if (connSortKey === k) connSortDir *= -1; else {
+      connSortKey = k;
+      connSortDir = 1
+    }
+    renderConns()
+  }
+
+  function autoPort() {
+    document.getElementById("conn-port").value = document.getElementById("conn-type").value === "mysql" ? "3306" : "5432"
+  }
+
+  function openConnModal() {
+    document.getElementById("conn-modal-title").textContent = "Add Connection";
+    document.getElementById("conn-edit-id").value = "";
+    ["conn-alias", "conn-host", "conn-user", "conn-pass", "conn-db"].forEach(i => document.getElementById(i).value = "");
+    document.getElementById("conn-pass").placeholder = "";
+    document.getElementById("conn-type").value = "mysql";
+    document.getElementById("conn-port").value = "3306";
+    openModal("conn-modal")
+  }
+
+  function editConn(c) {
+    document.getElementById("conn-modal-title").textContent = "Edit Connection";
+    document.getElementById("conn-edit-id").value = c.id;
+    document.getElementById("conn-alias").value = c.alias;
+    document.getElementById("conn-type").value = c.db_type;
+    document.getElementById("conn-host").value = c.host;
+    document.getElementById("conn-port").value = c.port;
+    document.getElementById("conn-user").value = c.user;
+    // Password is write-only (API returns "***"): leave blank = keep unchanged.
+    document.getElementById("conn-pass").value = "";
+    document.getElementById("conn-pass").placeholder = "留空 = 不修改";
+    document.getElementById("conn-db").value = c.db_name;
+    openModal("conn-modal")
+  }
+
+  async function saveConn() {
+    const eid = document.getElementById("conn-edit-id").value;
+    const b = {
+      alias: document.getElementById("conn-alias").value.trim(),
+      db_type: document.getElementById("conn-type").value,
+      host: document.getElementById("conn-host").value.trim(),
+      port: document.getElementById("conn-port").value.trim(),
+      user: document.getElementById("conn-user").value.trim(),
+      db_name: document.getElementById("conn-db").value.trim()
+    };
+    // Only send password when the user typed one (edit: blank = unchanged).
+    const pw = document.getElementById("conn-pass").value;
+    if (pw) b.password = pw;
+    const r = eid ? await apifetch(API + "/connections/" + eid, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(b)
+    }) : await apifetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    if (!r.ok) {
+      const e = await r.json();
+      toast(e.detail || "Error", false);
+      return
+    }
+    closeModal("conn-modal");
+    toast(eid ? "Updated" : "Created");
+    fetchConns()
+  }
+
+  async function deleteConn(id) {
+    if (!confirm("Delete connection and all its endpoints/ACL?")) return;
+    await apifetch(API + "/connections/" + id, {method: "DELETE"});
+    toast("Deleted");
+    fetchConns();
+    fetchEps();
+    fetchAcl()
+  }
+
+  function openConnImportModal() {
+    document.getElementById("conn-import-json").value = "";
+    openModal("conn-import-modal")
+  }
+
+  async function doConnImport() {
+    let items;
+    try {
+      items = JSON.parse(document.getElementById("conn-import-json").value)
+    } catch (e) {
+      toast("Invalid JSON", false);
+      return
+    }
+    if (!Array.isArray(items)) {
+      toast("Must be array", false);
+      return
+    }
+    items = items.map(i => ({...i, port: i.port || (i.db_type === "mysql" ? "3306" : "5432"), host: i.host || "localhost"}));
+    const r = await apifetch(API + "/connections/batch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(items)
+    });
+    if (!r.ok) {
+      toast("Error", false);
+      return
+    }
+    closeModal("conn-import-modal");
+    toast("Imported " + (await r.json()).length);
+    fetchConns()
+  }
+
+  // ============= Endpoints =============
+  async function fetchEps() {
+    allEps = await (await apifetch(API + "/endpoints")).json();
+    renderEps();
+    updateConnFilter()
+  }
+
+  function updateConnFilter() {
+    const sel = document.getElementById("ep-conn-filter");
+    const v = sel.value;
+    sel.innerHTML = '<option value="">All Connections</option>' + allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ')</option>').join("");
+    sel.value = v
+  }
+
+  function renderEps() {
+    const cf = document.getElementById("ep-conn-filter").value, q = document.getElementById("ep-search").value.toLowerCase().trim();
+    const filtered = allEps.filter(e => (!cf || e.connection_id === cf) && (!q || (e.alias + "" + e.description).toLowerCase().includes(q)));
+    const tb = document.getElementById("ep-tbody"), em = document.getElementById("ep-empty");
+    if (!filtered.length) {
+      tb.innerHTML = "";
+      em.style.display = "";
+      updateStats();
+      return
+    }
+    em.style.display = "none";
+    const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
+    tb.innerHTML = filtered.map(e => {
+      const c = connMap[e.connection_id];
+      const scope = e.allowed_tables.length ? e.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join(" ") : '<span class="scope-badge full">ALL TABLES</span>';
+      const dbt = c ? c.db_type : "?";
+      const path = "/" + dbt + "/" + e.alias + "/sse";
+      return '<tr><td><strong>' + esc(e.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + e.id + '</span></td><td>' + (c ? esc(c.alias) : "?") + '</td><td>' + (c ? '<span class="tag tag-' + c.db_type + '">' + c.db_type + '</span>' : "") + '</td><td style="max-width:240px">' + scope + '</td><td><span class="mcp-path">' + path + '</span></td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editEp(' + JSON.stringify(e).replace(/'/g, "&#39;") + ")'>Edit</button> <button class=\"btn btn-danger btn-sm\" onclick=\"deleteEp('" + e.id + "')\">Del</button></td></tr>"
+    }).join("");
+    updateStats()
+  }
+
+  function openEpModal() {
+    document.getElementById("ep-modal-title").textContent = "Add Endpoint";
+    document.getElementById("ep-edit-id").value = "";
+    document.getElementById("ep-alias").value = "";
+    document.getElementById("ep-desc").value = "";
+    document.getElementById("ep-tables").value = "";
+    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + " (" + c.db_type + " - " + c.host + "/" + c.db_name + ")</option>").join("");
+    openModal("ep-modal")
+  }
+
+  function editEp(e) {
+    document.getElementById("ep-modal-title").textContent = "Edit Endpoint";
+    document.getElementById("ep-edit-id").value = e.id;
+    document.getElementById("ep-alias").value = e.alias;
+    document.getElementById("ep-desc").value = e.description || "";
+    document.getElementById("ep-tables").value = e.allowed_tables.join("\n");
+    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '"' + (c.id === e.connection_id ? " selected" : "") + '>>' + esc(c.alias) + " (" + c.db_type + ")</option>").join("");
+    openModal("ep-modal")
+  }
+
+  async function saveEp() {
+    const eid = document.getElementById("ep-edit-id").value;
+    const tables = document.getElementById("ep-tables").value.split("\n").map(t => t.trim()).filter(Boolean);
+    const b = {
+      alias: document.getElementById("ep-alias").value.trim(),
+      connection_id: document.getElementById("ep-conn").value,
+      description: document.getElementById("ep-desc").value.trim(),
+      allowed_tables: tables
+    };
+    const r = eid ? await apifetch(API + "/endpoints/" + eid, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(b)
+    }) : await apifetch(API + "/endpoints", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    if (!r.ok) {
+      const e = await r.json();
+      toast(e.detail || "Error", false);
+      return
+    }
+    closeModal("ep-modal");
+    toast(eid ? "Updated" : "Created");
+    fetchEps()
+  }
+
+  async function deleteEp(id) {
+    if (!confirm("Delete endpoint and related ACL?")) return;
+    await apifetch(API + "/endpoints/" + id, {method: "DELETE"});
+    toast("Deleted");
+    fetchEps();
+    fetchAcl()
+  }
+
+  // ============= Users =============
+  async function fetchUsers() {
+    allUsers = await (await apifetch(API + "/users")).json();
+    renderUsers()
+  }
+
+  function renderUsers() {
+    const tb = document.getElementById("user-tbody"), em = document.getElementById("user-empty");
+    if (!allUsers.length) {
+      tb.innerHTML = "";
+      em.style.display = "";
+      updateStats();
+      return
+    }
+    em.style.display = "none";
+    tb.innerHTML = allUsers.map(u => '<tr><td><strong>' + esc(u.username) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + u.id + '</span></td><td><div class="token-display"><code title="Click to copy" onclick="copyToken(\'' + u.token + "')\">" + esc(u.token) + '</code> <button class="btn btn-ghost btn-sm" onclick="regenToken(\'' + u.id + "')\">Regen</button></div></td><td>" + (u.is_admin ? '<span class="tag tag-admin">admin</span>' : "user") + "</td><td class=\"actions-cell\"><button class=\"btn btn-danger btn-sm\" onclick=\"deleteUser('" + u.id + "')\">Del</button></td></tr>").join("");
+    updateStats()
+  }
+
+  function openUserModal() {
+    document.getElementById("user-username").value = "";
+    document.getElementById("user-admin").checked = false;
+    openModal("user-modal")
+  }
+
+  async function saveUser() {
+    const b = {username: document.getElementById("user-username").value.trim(), is_admin: document.getElementById("user-admin").checked};
+    const r = await apifetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    if (!r.ok) {
+      const e = await r.json();
+      toast(e.detail || "Error", false);
+      return
+    }
+    closeModal("user-modal");
+    toast("Created");
+    fetchUsers()
+  }
+
+  async function deleteUser(id) {
+    if (!confirm("Delete user?")) return;
+    await apifetch(API + "/users/" + id, {method: "DELETE"});
+    toast("Deleted");
+    fetchUsers();
+    fetchAcl()
+  }
+
+  function copyToken(t) {
+    navigator.clipboard.writeText(t);
+    toast("Copied")
+  }
+
+  async function regenToken(id) {
+    if (!confirm("Regenerate token?")) return;
+    await apifetch(API + "/users/" + id + "/regen-token", {method: "POST"});
+    toast("Regenerated");
+    fetchUsers()
+  }
+
+  // ============= ACL =============
+  async function fetchAcl() {
+    allAcl = await (await apifetch(API + "/acl")).json();
+    renderAcl()
+  }
+
+  function renderAcl() {
+    const userMap = Object.fromEntries(allUsers.map(u => [u.id, u.username]));
+    const epMap = Object.fromEntries(allEps.map(e => [e.id, e]));
+    const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
+    const tb = document.getElementById("acl-tbody"), em = document.getElementById("acl-empty");
+    if (!allAcl.length) {
+      tb.innerHTML = "";
+      em.style.display = "";
+      updateStats();
+      return
+    }
+    em.style.display = "none";
+    tb.innerHTML = allAcl.map(a => {
+      const ep = epMap[a.endpoint_id];
+      const c = ep ? connMap[ep.connection_id] : null;
+      const scope = ep && ep.allowed_tables.length ? ep.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join(" ") : '<span class="scope-badge full">ALL</span>';
+      return '<tr><td>' + esc(userMap[a.user_id] || a.user_id) + '</td><td>' + (ep ? esc(ep.alias) : a.endpoint_id) + '</td><td>' + (c ? esc(c.alias) : "") + '</td><td>' + scope + '</td><td><button class="btn btn-danger btn-sm" onclick="deleteAclEntry(\'' + a.id + "')\">Remove</button></td></tr>"
+    }).join("");
+    updateStats()
+  }
+
+  async function openAclModal() {
+    document.getElementById("acl-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
+    document.getElementById("acl-ep").innerHTML = allEps.map(e => {
+      const c = allConns.find(c => c.id === e.connection_id);
+      return '<option value="' + e.id + '">' + esc(e.alias) + (c ? " (" + c.db_type + ")" : "") + "</option>"
+    }).join("");
+    openModal("acl-modal")
+  }
+
+  async function saveAcl() {
+    const uid = document.getElementById("acl-user").value, eid = document.getElementById("acl-ep").value;
+    if (!uid || !eid) {
+      toast("Select both", false);
+      return
+    }
+    const r = await apifetch(API + "/acl?user_id=" + uid + "&endpoint_id=" + eid, {method: "POST"});
+    if (!r.ok) {
+      const e = await r.json();
+      toast(e.detail || "Error", false);
+      return
+    }
+    closeModal("acl-modal");
+    toast("Added");
+    fetchAcl()
+  }
+
+  async function deleteAclEntry(id) {
+    await apifetch(API + "/acl/" + id, {method: "DELETE"});
+    toast("Removed");
+    fetchAcl()
+  }
+
+  function openAclBatchModal() {
+    document.getElementById("acl-batch-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
+    document.getElementById("acl-batch-eps").innerHTML = allEps.map(e => {
+      const c = allConns.find(c => c.id === e.connection_id);
+      return '<option value="' + e.id + '">' + esc(e.alias) + (c ? " (" + c.db_type + ")" : "") + "</option>"
+    }).join("");
+    openModal("acl-batch-modal")
+  }
+
+  async function saveAclBatch() {
+    const uid = document.getElementById("acl-batch-user").value;
+    const eids = Array.from(document.getElementById("acl-batch-eps").selectedOptions).map(o => o.value);
+    if (!uid || !eids.length) {
+      toast("Select user and endpoints", false);
+      return
+    }
+    const items = eids.map(eid => ({user_id: uid, endpoint_id: eid}));
+    const r = await apifetch(API + "/acl/batch", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(items)});
+    if (!r.ok) {
+      toast("Error", false);
+      return
+    }
+    closeModal("acl-batch-modal");
+    toast("Added " + (await r.json()).length + " rules");
+    fetchAcl()
+  }
+
+  // Init
+  document.getElementById("admin-token").value = getAdminToken();
+  Promise.all([fetchConns(), fetchEps(), fetchUsers(), fetchAcl()]);
+</script>
+</body>
+</html>
