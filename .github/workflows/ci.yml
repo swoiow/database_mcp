@@ -25,4 +25,4 @@ jobs:
           pip install pytest
 
       - name: Run unit tests
-        run: pytest tests/ -q
+        run: pytest tests/ -q --ignore=tests/e2e

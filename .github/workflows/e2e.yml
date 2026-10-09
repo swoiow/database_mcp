@@ -1,0 +1,50 @@
+name: E2E
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  e2e:
+    name: e2e (MySQL + PostgreSQL containers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock
+          pip install pytest httpx
+
+      - name: Start databases
+        run: docker compose -f .github/docker-compose.e2e.yml up -d --wait
+
+      - name: Run e2e tests
+        run: pytest tests/e2e/ -v --tb=short
+
+      - name: Show container status
+        if: always()
+        run: docker compose -f .github/docker-compose.e2e.yml ps
+
+      - name: Dump database logs
+        if: always()
+        run: docker compose -f .github/docker-compose.e2e.yml logs --no-color > e2e-db-logs.txt 2>&1 || true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: e2e-db-logs.txt
+
+      - name: Tear down databases
+        if: always()
+        run: docker compose -f .github/docker-compose.e2e.yml down -v

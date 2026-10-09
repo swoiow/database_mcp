@@ -1,0 +1,44 @@
+# E2E databases for GitHub Actions (and local runs).
+#
+#   docker compose -f .github/docker-compose.e2e.yml up -d --wait
+#   pytest tests/e2e/ -q
+#   docker compose -f .github/docker-compose.e2e.yml down -v
+#
+# Plaintext passwords are intentional: throwaway test data only.
+# Init SQL is mounted into /docker-entrypoint-initdb.d/ and runs once
+# at first container start (see tests/e2e/initdb/).
+name: dbmcp-e2e
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: e2e
+      MYSQL_USER: e2e
+      MYSQL_PASSWORD: e2e
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../tests/e2e/initdb/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: e2e
+      POSTGRES_PASSWORD: e2e
+      POSTGRES_DB: e2e
+    ports:
+      - "5432:5432"
+    volumes:
+      - ../tests/e2e/initdb/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U e2e -d e2e"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
