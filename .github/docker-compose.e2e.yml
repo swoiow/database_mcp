@@ -11,7 +11,8 @@ name: dbmcp-e2e
 
 services:
   mysql:
-    image: mysql:8.0
+    # image: mysql:8.0
+    image: mariadb:latest
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: e2e
@@ -22,13 +23,14 @@ services:
     volumes:
       - ../tests/e2e/initdb/mysql:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      # test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-uroot", "-proot" ]
       interval: 3s
       timeout: 3s
       retries: 20
 
   postgres:
-    image: postgres:16
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: e2e
       POSTGRES_PASSWORD: e2e
