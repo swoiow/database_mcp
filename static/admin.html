@@ -544,6 +544,7 @@
     <h1>DB-MCP Gateway</h1>
     <span class="badge">Admin</span>
     <span class="stats" id="stats"></span>
+    <input type="password" id="admin-token" class="search-box" placeholder="Admin Token" title="ADMIN_TOKEN (env) for /admin/api" style="width:170px;margin-left:auto" oninput="saveAdminToken()">
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
   </div>
   <div class="tabs">
@@ -777,6 +778,20 @@
 
   applyTheme(getTheme());
 
+  // ---- Admin auth: attach ADMIN_TOKEN as Bearer header on every API call ----
+  function getAdminToken() { return localStorage.getItem("dbmcp-admin-token") || ""; }
+  function saveAdminToken() { localStorage.setItem("dbmcp-admin-token", document.getElementById("admin-token").value.trim()); }
+  async function apifetch(url, opts) {
+    opts = opts || {};
+    const headers = Object.assign({}, opts.headers || {});
+    const t = getAdminToken();
+    if (t) headers["Authorization"] = "Bearer " + t;
+    opts.headers = headers;
+    const r = await fetch(url, opts);
+    if (r.status === 401) toast("Admin Token 缺失或无效：请在右上角输入后重试", false);
+    return r;
+  }
+
   function toast(m, ok = true) {
     const e = document.createElement("div");
     e.className = "toast " + (ok ? "toast-ok" : "toast-err");
@@ -811,7 +826,7 @@
 
   // ============= Connections =============
   async function fetchConns() {
-    allConns = await (await fetch(API + "/connections")).json();
+    allConns = await (await apifetch(API + "/connections")).json();
     renderConns()
   }
 
@@ -865,6 +880,7 @@
     document.getElementById("conn-modal-title").textContent = "Add Connection";
     document.getElementById("conn-edit-id").value = "";
     ["conn-alias", "conn-host", "conn-user", "conn-pass", "conn-db"].forEach(i => document.getElementById(i).value = "");
+    document.getElementById("conn-pass").placeholder = "";
     document.getElementById("conn-type").value = "mysql";
     document.getElementById("conn-port").value = "3306";
     openModal("conn-modal")
@@ -878,7 +894,9 @@
     document.getElementById("conn-host").value = c.host;
     document.getElementById("conn-port").value = c.port;
     document.getElementById("conn-user").value = c.user;
-    document.getElementById("conn-pass").value = c.password;
+    // Password is write-only (API returns "***"): leave blank = keep unchanged.
+    document.getElementById("conn-pass").value = "";
+    document.getElementById("conn-pass").placeholder = "留空 = 不修改";
     document.getElementById("conn-db").value = c.db_name;
     openModal("conn-modal")
   }
@@ -891,14 +909,16 @@
       host: document.getElementById("conn-host").value.trim(),
       port: document.getElementById("conn-port").value.trim(),
       user: document.getElementById("conn-user").value.trim(),
-      password: document.getElementById("conn-pass").value,
       db_name: document.getElementById("conn-db").value.trim()
     };
-    const r = eid ? await fetch(API + "/connections/" + eid, {
+    // Only send password when the user typed one (edit: blank = unchanged).
+    const pw = document.getElementById("conn-pass").value;
+    if (pw) b.password = pw;
+    const r = eid ? await apifetch(API + "/connections/" + eid, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(b)
-    }) : await fetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    }) : await apifetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
       const e = await r.json();
       toast(e.detail || "Error", false);
@@ -911,7 +931,7 @@
 
   async function deleteConn(id) {
     if (!confirm("Delete connection and all its endpoints/ACL?")) return;
-    await fetch(API + "/connections/" + id, {method: "DELETE"});
+    await apifetch(API + "/connections/" + id, {method: "DELETE"});
     toast("Deleted");
     fetchConns();
     fetchEps();
@@ -936,7 +956,7 @@
       return
     }
     items = items.map(i => ({...i, port: i.port || (i.db_type === "mysql" ? "3306" : "5432"), host: i.host || "localhost"}));
-    const r = await fetch(API + "/connections/batch", {
+    const r = await apifetch(API + "/connections/batch", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(items)
@@ -952,7 +972,7 @@
 
   // ============= Endpoints =============
   async function fetchEps() {
-    allEps = await (await fetch(API + "/endpoints")).json();
+    allEps = await (await apifetch(API + "/endpoints")).json();
     renderEps();
     updateConnFilter()
   }
@@ -1015,11 +1035,11 @@
       description: document.getElementById("ep-desc").value.trim(),
       allowed_tables: tables
     };
-    const r = eid ? await fetch(API + "/endpoints/" + eid, {
+    const r = eid ? await apifetch(API + "/endpoints/" + eid, {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(b)
-    }) : await fetch(API + "/endpoints", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    }) : await apifetch(API + "/endpoints", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
       const e = await r.json();
       toast(e.detail || "Error", false);
@@ -1032,7 +1052,7 @@
 
   async function deleteEp(id) {
     if (!confirm("Delete endpoint and related ACL?")) return;
-    await fetch(API + "/endpoints/" + id, {method: "DELETE"});
+    await apifetch(API + "/endpoints/" + id, {method: "DELETE"});
     toast("Deleted");
     fetchEps();
     fetchAcl()
@@ -1040,7 +1060,7 @@
 
   // ============= Users =============
   async function fetchUsers() {
-    allUsers = await (await fetch(API + "/users")).json();
+    allUsers = await (await apifetch(API + "/users")).json();
     renderUsers()
   }
 
@@ -1065,7 +1085,7 @@
 
   async function saveUser() {
     const b = {username: document.getElementById("user-username").value.trim(), is_admin: document.getElementById("user-admin").checked};
-    const r = await fetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
+    const r = await apifetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
     if (!r.ok) {
       const e = await r.json();
       toast(e.detail || "Error", false);
@@ -1078,7 +1098,7 @@
 
   async function deleteUser(id) {
     if (!confirm("Delete user?")) return;
-    await fetch(API + "/users/" + id, {method: "DELETE"});
+    await apifetch(API + "/users/" + id, {method: "DELETE"});
     toast("Deleted");
     fetchUsers();
     fetchAcl()
@@ -1091,14 +1111,14 @@
 
   async function regenToken(id) {
     if (!confirm("Regenerate token?")) return;
-    await fetch(API + "/users/" + id + "/regen-token", {method: "POST"});
+    await apifetch(API + "/users/" + id + "/regen-token", {method: "POST"});
     toast("Regenerated");
     fetchUsers()
   }
 
   // ============= ACL =============
   async function fetchAcl() {
-    allAcl = await (await fetch(API + "/acl")).json();
+    allAcl = await (await apifetch(API + "/acl")).json();
     renderAcl()
   }
 
@@ -1138,7 +1158,7 @@
       toast("Select both", false);
       return
     }
-    const r = await fetch(API + "/acl?user_id=" + uid + "&endpoint_id=" + eid, {method: "POST"});
+    const r = await apifetch(API + "/acl?user_id=" + uid + "&endpoint_id=" + eid, {method: "POST"});
     if (!r.ok) {
       const e = await r.json();
       toast(e.detail || "Error", false);
@@ -1150,7 +1170,7 @@
   }
 
   async function deleteAclEntry(id) {
-    await fetch(API + "/acl/" + id, {method: "DELETE"});
+    await apifetch(API + "/acl/" + id, {method: "DELETE"});
     toast("Removed");
     fetchAcl()
   }
@@ -1172,7 +1192,7 @@
       return
     }
     const items = eids.map(eid => ({user_id: uid, endpoint_id: eid}));
-    const r = await fetch(API + "/acl/batch", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(items)});
+    const r = await apifetch(API + "/acl/batch", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(items)});
     if (!r.ok) {
       toast("Error", false);
       return
@@ -1183,6 +1203,7 @@
   }
 
   // Init
+  document.getElementById("admin-token").value = getAdminToken();
   Promise.all([fetchConns(), fetchEps(), fetchUsers(), fetchAcl()]);
 </script>
 </body>

@@ -7,17 +7,78 @@ Three-layer model:
 """
 from __future__ import annotations
 
+import hmac
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
 
+from core.metering import metering
 from gateway_config import (ACLEntry, ConfigStore, ConnectionMeta, EndpointMeta, get_store, UserMeta)
 
 
 logger = logging.getLogger("gateway.api")
 
-admin_router = APIRouter(prefix="/admin/api", tags=["admin"])
+
+# ---------------------------------------------------------------------------
+# Admin authentication
+# ---------------------------------------------------------------------------
+# Set the ADMIN_TOKEN env var to protect /admin/api. Clients (incl. the
+# bundled admin UI) must send:  Authorization: Bearer <ADMIN_TOKEN>
+# If ADMIN_TOKEN is unset, the admin API stays open for backwards
+# compatibility, but a loud warning is logged at startup (see gateway.py).
+
+def _expected_admin_token() -> str:
+    return os.environ.get("ADMIN_TOKEN", "")
+
+
+async def require_admin(request: Request) -> None:
+    expected = _expected_admin_token()
+    if not expected:
+        return
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    if not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(
+            status_code=401,
+            detail="Admin authentication required. Send 'Authorization: Bearer <ADMIN_TOKEN>'.",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Password masking
+# ---------------------------------------------------------------------------
+# Connection passwords are write-only: accepted on create/update, but never
+# returned by any read API (previously GET /connections leaked them in plaintext).
+
+class ConnectionPublic(BaseModel):
+    """Connection as returned by read APIs: password always masked."""
+    id: str
+    alias: str
+    db_type: str
+    host: str = ""
+    port: str = ""
+    user: str = ""
+    password: str = Field(default="***", description="Masked; write-only on create/update")
+    db_name: str = ""
+    extra: Dict[str, Any] = Field(default_factory=dict)
+    created_at: str = ""
+    updated_at: str = ""
+
+
+def _public_conn(conn: ConnectionMeta) -> ConnectionPublic:
+    data = conn.model_dump()
+    data["password"] = "***"
+    return ConnectionPublic(**data)
+
+
+admin_router = APIRouter(
+    prefix="/admin/api",
+    tags=["admin"],
+    dependencies=[Depends(require_admin)],
+)
 user_router = APIRouter(prefix="/api", tags=["user"])
 
 
@@ -34,31 +95,31 @@ def _regen(request: Request) -> None:
 # Connections CRUD
 # =========================================================================
 
-@admin_router.get("/connections", response_model=List[ConnectionMeta])
+@admin_router.get("/connections", response_model=List[ConnectionPublic])
 def list_connections(db_type: Optional[str] = None):
-    return _store().list_connections(db_type)
+    return [_public_conn(c) for c in _store().list_connections(db_type)]
 
 
-@admin_router.get("/connections/{conn_id}", response_model=ConnectionMeta)
+@admin_router.get("/connections/{conn_id}", response_model=ConnectionPublic)
 def get_connection(conn_id: str):
     conn = _store().get_connection(conn_id)
     if not conn:
         raise HTTPException(404, "Connection not found")
-    return conn
+    return _public_conn(conn)
 
 
-@admin_router.post("/connections", response_model=ConnectionMeta, status_code=201)
+@admin_router.post("/connections", response_model=ConnectionPublic, status_code=201)
 def create_connection(body: ConnectionMeta, request: Request):
     try:
-        return _store().add_connection(body)
+        return _public_conn(_store().add_connection(body))
     except ValueError as e:
         raise HTTPException(400, str(e))
 
 
-@admin_router.patch("/connections/{conn_id}", response_model=ConnectionMeta)
+@admin_router.patch("/connections/{conn_id}", response_model=ConnectionPublic)
 def update_connection(conn_id: str, body: Dict[str, Any], request: Request):
     try:
-        return _store().update_connection(conn_id, body)
+        return _public_conn(_store().update_connection(conn_id, body))
     except ValueError as e:
         raise HTTPException(404, str(e))
 
@@ -69,12 +130,12 @@ def delete_connection(conn_id: str, request: Request):
     _regen(request)
 
 
-@admin_router.post("/connections/batch", response_model=List[ConnectionMeta], status_code=201)
+@admin_router.post("/connections/batch", response_model=List[ConnectionPublic], status_code=201)
 def batch_create_connections(items: List[ConnectionMeta], request: Request):
     results = []
     for item in items:
         try:
-            results.append(_store().add_connection(item))
+            results.append(_public_conn(_store().add_connection(item)))
         except ValueError:
             pass
     if results:
@@ -197,6 +258,16 @@ def delete_acl(acl_id: str, request: Request):
 
 
 # =========================================================================
+# Metering (usage / showback)
+# =========================================================================
+
+@admin_router.get("/metering")
+def get_metering():
+    """Aggregated usage: calls/rows/errors/latency per user, endpoint, tool."""
+    return metering.summary()
+
+
+# =========================================================================
 # User-facing: discover endpoints by token
 # =========================================================================
 
@@ -208,6 +279,10 @@ def list_my_endpoints(token: str):
     eps = _store().get_user_endpoints(user.id)
     return {
         "user": user.username,
+        # L1 access: every MCP request must carry this token, either as
+        #   Authorization: Bearer <token>   (preferred)
+        # or as a ?token= query parameter.
+        "auth": "Send your token as 'Authorization: Bearer <token>' header on every MCP request.",
         "endpoints": [
             {
                 "endpoint_id": ep.id,

@@ -13,6 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 from core.cache import mk_cache_key, TTLCache
+from core.engines import get_engine
 from drivers.mysql_driver import MySQLDriver
 from prompts.mysql_prompts import MYSQL_PROMPTS
 
@@ -33,13 +34,20 @@ driver = MySQLDriver()
 mcp = FastMCP("DB-MCP-MySQL")
 
 # ---------- Resources: prompts ----------
+def _prompt_reader(text: str):
+    def _read() -> str:
+        return text
+    return _read
+
+
 for name, text_md in MYSQL_PROMPTS.items():
-    mcp.add_resource(
-        uri=f"mcp://mysql/prompts/{name}",
+    # NOTE: FastMCP.add_resource() takes a Resource object (the old
+    # uri=/text= kwargs never existed in SDK 1.27+); use the decorator.
+    mcp.resource(
+        f"mcp://mysql/prompts/{name}",
         description=f"MySQL built-in prompt: {name}",
         mime_type="text/markdown",
-        text=text_md,
-    )
+    )(_prompt_reader(text_md))
 
 
 # ---------- Data models ----------
@@ -68,10 +76,14 @@ class ExecuteSQLInput(ConnInput):
 
 
 async def _connect(input: ConnInput) -> Any:
-    engine = await driver.init_engine(
-        host=input.host, user=input.user or "", password=input.password or "",
-        db_name=input.db_name, port=input.port,
-    )
+    # Reuse a cached engine per connection fingerprint instead of
+    # building (and leaking) a new engine on every tool call.
+    conn_args = {
+        "host": input.host, "user": input.user or "",
+        "password": input.password or "", "db_name": input.db_name,
+        "port": input.port,
+    }
+    engine = await get_engine(driver, "mysql", conn_args)
     conn = await engine.connect()
     await driver.ensure_connection(conn)
     return conn
@@ -142,8 +154,14 @@ async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
     return out
 
 
+# ASGI app for uvicorn/Docker (`uvicorn server_mysql:app`).
+# (FastMCP has no `.app` attribute; the old Dockerfile target `mcp.app`
+# crashed with AttributeError.)
+app = mcp.sse_app()
+
+
 if __name__ == "__main__":
     import uvicorn
 
 
-    uvicorn.run(mcp.sse_app(), host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

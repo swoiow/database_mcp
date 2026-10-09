@@ -5,11 +5,16 @@ Three-layer model:
   Endpoint    = MCP exposure layer (references a connection, carries allowed_tables)
   ACL         = user -> endpoint binding
 
-Persisted via pickle for compact binary storage.
+Persisted as JSON (gateway_data.json): human-readable, diffable, and
+safe against partial-write corruption via atomic replace. A legacy
+gateway_data.pkl (pickle) is auto-migrated on first load.
 """
 from __future__ import annotations
 
+import json
+import os
 import pickle
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -114,34 +119,47 @@ class GatewayConfig(BaseModel):
 # Persistence
 # ---------------------------------------------------------------------------
 
-_DEFAULT_PATH = Path("gateway_data.pkl")
-_PKL_PROTOCOL = pickle.HIGHEST_PROTOCOL
+_DEFAULT_PATH = Path("gateway_data.json")
+_LEGACY_PKL_PATH = Path("gateway_data.pkl")
 
 
 class ConfigStore:
-    """Pickle-file backed config store."""
+    """JSON-file backed config store (atomic writes, thread-safe)."""
 
     def __init__(self, path: Path | str | None = None) -> None:
         self._path = Path(path) if path else _DEFAULT_PATH
+        self._lock = threading.Lock()
         self._data = self._load()
 
     def _load(self) -> GatewayConfig:
+        # 1) JSON (current format)
         if self._path.exists():
             try:
-                with open(self._path, "rb") as f:
+                raw = json.loads(self._path.read_text(encoding="utf-8"))
+                return GatewayConfig.model_validate(raw)
+            except (ValueError, OSError):
+                pass
+        # 2) Legacy pickle -> migrate to JSON
+        legacy = _LEGACY_PKL_PATH if self._path == _DEFAULT_PATH else self._path.with_suffix(".pkl")
+        if legacy.exists():
+            try:
+                with open(legacy, "rb") as f:
                     raw = pickle.load(f)
-                # Support both dict and GatewayConfig payloads
-                if isinstance(raw, GatewayConfig):
-                    return raw
-                if isinstance(raw, dict):
-                    return GatewayConfig.model_validate(raw)
-            except (pickle.UnpicklingError, ValueError, EOFError, Exception):
+                cfg = raw if isinstance(raw, GatewayConfig) else GatewayConfig.model_validate(raw)
+                self._data = cfg
+                self._save()
+                legacy.rename(legacy.with_suffix(".pkl.bak"))
+                return cfg
+            except Exception:
                 pass
         return GatewayConfig()
 
     def _save(self) -> None:
-        with open(self._path, "wb") as f:
-            pickle.dump(self._data, f, protocol=_PKL_PROTOCOL)
+        with self._lock:
+            tmp = self._path.with_name(self._path.name + ".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self._data.model_dump(), f, ensure_ascii=False, indent=2)
+            os.replace(tmp, self._path)
 
     @property
     def data(self) -> GatewayConfig:

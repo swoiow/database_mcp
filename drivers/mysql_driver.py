@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection, create_async_engine
 from sqlalchemy import text
 from core.base import BaseDriver
+from core.sqlguard import ensure_readonly_select
 
 SYSTEM_DBS = {"information_schema", "performance_schema", "mysql", "sys"}
 
@@ -104,10 +105,10 @@ class MySQLDriver(BaseDriver):
         return f"{s} LIMIT {max_rows}"
 
     async def run_select_json(self, conn: AsyncConnection, sql: str, max_rows: int) -> Dict[str, Any]:
+        # AST-based read-only enforcement (blocks data-modifying CTEs,
+        # SELECT INTO, INTO OUTFILE, stacked queries, ...).
+        ensure_readonly_select(sql, "mysql")
         s = sql.strip()
-        head = (s.split(None, 1)[0] if s else "").lower()
-        if head != "select" and not s.lower().startswith("with "):
-            raise ValueError("MySQL driver only allows SELECT / WITH. 仅允许 SELECT 或 WITH。")
         stmt = text(self._append_limit_if_missing(s, max_rows))
         rs = await conn.execute(stmt)
         rows = rs.fetchall()

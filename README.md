@@ -38,6 +38,21 @@ Three-layer model:
 
 One connection can back multiple endpoints with different table scopes.
 
+## Permission model (gateway-owned)
+
+The gateway holds the admin DB credentials and executes every query
+itself. Permissions are enforced at two levels, both in the gateway:
+
+- **L1 — endpoint access**: every request to an MCP endpoint
+  (`/{db_type}/{alias}/sse|/messages|/mcp`) must carry a user token,
+  either as `Authorization: Bearer <token>` (preferred) or `?token=`.
+  The gateway checks the token → endpoint ACL; no grant → 403.
+- **L2 — table scope**: per tool call, referenced tables are extracted
+  from the SQL AST (sqlglot) and checked against the endpoint's
+  `allowed_tables`; `execute_sql` additionally rejects anything that is
+  not a single pure `SELECT` (blocks data-modifying CTEs,
+  `SELECT INTO`, `INTO OUTFILE`, stacked queries).
+
 ## Features
 
 - **Multi-database**: unlimited MySQL and PostgreSQL connections.
@@ -51,8 +66,18 @@ One connection can back multiple endpoints with different table scopes.
 - **Dynamic mounting**: endpoints are mounted/unmounted on config change
   without restart.
 - **Standalone servers**: `server_mysql.py` and `server_pgsql.py` can
-  run independently with `.env` config (SDK 1.27+).
-- **Optional TTL cache**: per-call `use_cache/ttl` parameters.
+  run independently with `.env` config (SDK 1.27+, v1 API).
+- **Optional TTL cache**: per-call `use_cache/ttl` parameters (gateway
+  and standalone).
+- **Two transports**: SSE (`/sse`, `/messages`) and Streamable HTTP
+  (`/mcp`) mounted per endpoint.
+- **Audit log**: every MCP tool call appended as JSONL (`audit.log`).
+- **Usage metering**: per user / endpoint / tool counters
+  (`GET /admin/api/metering`, persisted to `metering.json`).
+- **Runtime guards**: query timeout, server-side `max_rows` cap,
+  per-(user, endpoint) rate limiting (all env-configurable).
+- **AST read-only guard**: sqlglot-based, blocks data-modifying CTEs,
+  `SELECT INTO`, `INTO OUTFILE`, stacked queries.
 
 ## Project Structure
 
@@ -68,6 +93,14 @@ server_pgsql.py         # Standalone PostgreSQL MCP server (SDK 1.27+)
 core/
   base.py               # Abstract driver interface
   cache.py              # In-process TTL cache
+  sqlguard.py           # AST read-only guard + table extraction (sqlglot)
+  engines.py            # Process-wide async engine cache
+  ctx.py                # Per-request context (L1 identity for tools)
+  audit.py              # JSONL query audit log
+  metering.py           # Usage counters (persisted JSON)
+  ratelimit.py          # Sliding-window rate limiter
+
+tests/                  # pytest: guard, scope, persistence, auth, metering
 
 drivers/
   mysql_driver.py       # MySQL driver (SQLAlchemy + aiomysql)
@@ -80,7 +113,7 @@ prompts/
 static/
   admin.html            # Admin management UI
 
-gateway_data.pkl        # Persisted config (pickle)
+gateway_data.json       # Persisted config (JSON; legacy .pkl auto-migrated)
 requirements.txt
 Dockerfile
 .env.sample
@@ -101,13 +134,13 @@ users, and ACL.
 ### Standalone MySQL
 
 ```bash
-uvicorn server_mysql:mcp.sse_app --host 0.0.0.0 --port 8001
+uvicorn server_mysql:app --host 0.0.0.0 --port 8001
 ```
 
 ### Standalone PostgreSQL
 
 ```bash
-uvicorn server_pgsql:mcp.sse_app --host 0.0.0.0 --port 8002
+uvicorn server_pgsql:app --host 0.0.0.0 --port 8002
 ```
 
 Standalone servers read connection info from `.env` (see `.env.sample`).
@@ -140,7 +173,25 @@ Visit `/admin`. The UI has four tabs:
 4. **ACL** — assign endpoints to users. Bulk assign supported.
 
 First startup creates a default `admin` user automatically.
-Check `gateway_data.pkl` or the Users tab for the token.
+Check the Users tab for the token.
+
+### Securing the admin API
+
+Set `ADMIN_TOKEN` before starting the gateway:
+
+```bash
+export ADMIN_TOKEN="a-long-random-string"
+uvicorn gateway:app --host 0.0.0.0 --port 8000
+```
+
+When set, every `/admin/api/*` call must carry
+`Authorization: Bearer <ADMIN_TOKEN>` (the bundled admin UI has a token
+box in the top bar and stores it in `localStorage`). Without it the
+server logs a warning and leaves the admin API open (dev only).
+
+Connection passwords are write-only: accepted on create/update, but
+read APIs always return `"password": "***"`. To change a password, edit
+the connection and type the new one (blank = keep unchanged).
 
 ## MCP Endpoints
 
@@ -162,7 +213,8 @@ GET /api/endpoints?token=USER_TOKEN
 ```
 
 Returns the list of endpoints the user can access, with MCP paths and
-table scope info.
+table scope info. Every MCP request to those paths must then carry the
+token as `Authorization: Bearer <token>` (or `?token=`).
 
 ### Table scoping example
 
@@ -201,6 +253,7 @@ to user C. Each gets their own MCP server URL.
 | POST   | `/acl`                    | Create ACL rule               |
 | POST   | `/acl/batch`              | Batch create ACL              |
 | DELETE | `/acl/{id}`               | Delete ACL rule               |
+| GET    | `/metering`               | Usage counters (users/endpoints/tools) |
 | POST   | `/admin/reload`           | Resync MCP mounts             |
 
 ### User API (`/api`)
@@ -218,17 +271,54 @@ Each endpoint exposes these tools (names vary by db_type):
 | `get_all_schemas`              | List databases/schemas with tables/columns (filtered by scope) |
 | `get_tables`                   | List tables (filtered by scope)                                |
 | `get_table_schema`             | Describe a table (blocked if outside scope)                    |
-| `execute_sql`                  | Execute read-only SELECT (table references validated)          |
+| `execute_sql`                  | Execute read-only SELECT (AST-validated, table references checked) |
 | `{db_type}_get_builtin_prompt` | Get built-in analysis/sql_rules/react prompt                   |
 
 ## Persistence
 
-Config is stored in `gateway_data.pkl` (pickle format). The file is
-created automatically on first write. To reset, delete the file and
-restart.
+Config is stored in `gateway_data.json` (JSON, atomic writes). A legacy
+`gateway_data.pkl` is auto-migrated on first load (backed up as
+`gateway_data.pkl.bak`). To reset, delete the JSON file and restart.
+
+## Observability
+
+- **Audit**: `audit.log` (JSONL) — one record per MCP tool call:
+  timestamp, user, endpoint, tool, SQL hash + preview, tables, rows,
+  duration, cache hit, error. Set `DBMCP_AUDIT_PATH` to relocate.
+- **Metering**: `GET /admin/api/metering` returns aggregated
+  calls/rows/errors/latency per user, endpoint and tool (persisted to
+  `metering.json`, `DBMCP_METERING_PATH` to relocate).
+
+## Runtime guards
+
+| Env var | Default | Meaning |
+|---------|---------|---------|
+| `DBMCP_QUERY_TIMEOUT` | `30` | tool-call timeout, seconds |
+| `DBMCP_MAX_ROWS` | `10000` | hard server-side cap for `execute_sql` `max_rows` |
+| `DBMCP_RATE_LIMIT_PER_MIN` | `120` | tool calls per (user, endpoint) per minute |
+
+> **Production note (Streamable HTTP):** the MCP SDK enables DNS-rebinding
+> protection by default and only allows `localhost` / `127.0.0.1` / `[::1]`
+> (with port). If you serve the gateway on a public domain, extend the
+> allow-list via env, e.g.
+> `FASTMCP_TRANSPORT_SECURITY__ALLOWED_HOSTS='["db.example.com:*"]'`.
+> SSE transport is unaffected.
+
+## Tests
+
+```bash
+pip install -r requirements.lock pytest
+pytest tests/ -q
+```
+
+Covers: read-only SQL guard + table extraction, L2 table scope,
+JSON persistence + pickle migration, admin auth + password masking,
+metering, rate limiter, engine fingerprint.
 
 ## Requirements
 
 - Python 3.12+
-- mcp >= 1.27 (SDK with `FastMCP.sse_app()` / `FastMCP.streamable_http_app()`)
-- fastapi, uvicorn, sqlalchemy, aiomysql, asyncpg, python-dotenv, pydantic
+- mcp >= 1.27, < 2 (v1 API with `FastMCP`; v2 renamed it to `MCPServer`)
+- fastapi, uvicorn, sqlalchemy, aiomysql, asyncpg, python-dotenv,
+  pydantic, sqlglot
+- Pinned lock file: `requirements.lock` (`pip install -r requirements.lock`)
