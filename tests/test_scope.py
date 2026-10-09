@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from gateway_config import EndpointMeta
@@ -28,7 +29,7 @@ def test_plain_table_matches_any_scope():
 def test_qualified_entry():
     ep = _ep("shop.orders")
     assert ep.is_table_allowed("orders", "shop")
-    assert ep.is_table_allowed("orders", None)      # unqualified ref matches
+    assert ep.is_table_allowed("orders", None)  # unqualified ref matches
     assert not ep.is_table_allowed("orders", "other")
 
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+
 pytest.importorskip("mcp")
 pytest.importorskip("sqlalchemy")
 
@@ -35,6 +36,7 @@ def test_denial_is_audited_and_metered(tmp_path, monkeypatch, ep):
         with pytest.raises(ValueError):
             await _run_tool("execute_sql", ep, {"sql": "SELECT * FROM users"},
                             denied, dialect="mysql")
+
     _run(main())
 
     rec = json.loads((tmp_path / "audit.log").read_text().strip().split("\n")[-1])
@@ -47,6 +49,7 @@ def test_rate_limit_blocks(tmp_path, monkeypatch, ep):
     monkeypatch.setenv("DBMCP_AUDIT_PATH", str(tmp_path / "audit.log"))
     monkeypatch.setenv("DBMCP_METERING_PATH", str(tmp_path / "metering.json"))
     import core.ratelimit as rl
+
     monkeypatch.setattr(rl.ratelimiter, "per_minute", 1)
 
     async def ok():
@@ -56,4 +59,5 @@ def test_rate_limit_blocks(tmp_path, monkeypatch, ep):
         await _run_tool("get_tables", ep, {}, ok)  # 1st passes
         with pytest.raises(ValueError, match="Rate limit"):
             await _run_tool("get_tables", ep, {}, ok)  # 2nd blocked
+
     _run(main())

@@ -1,11 +1,11 @@
 """Core unit tests: admin API auth + password masking (P0-1)."""
 import asyncio
-import os
 import sys
 from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 

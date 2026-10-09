@@ -58,8 +58,9 @@ async def drop_engines() -> None:
 
 
 @asynccontextmanager
-async def connect_checked(driver: Any, db_type: str,
-                          conn_args: Dict[str, Any]) -> AsyncIterator[AsyncConnection]:
+async def connect_checked(
+    driver: Any, db_type: str,
+    conn_args: Dict[str, Any]) -> AsyncIterator[AsyncConnection]:
     """Yield a live, health-checked connection; always released to the pool.
 
     NOTE: ``await engine.connect()`` returns an *already-started*

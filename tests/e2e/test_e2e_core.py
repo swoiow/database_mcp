@@ -3,9 +3,8 @@
 Covers: real SELECT returns seeded rows, L2 table-scope denial,
 read-only guard blocks writes (table left intact), L1 auth, tools list.
 """
-import pytest
 
-from conftest import MYSQL_CFG, PG_CFG, need_mysql, need_pg, _tool_payload
+from conftest import _tool_payload, MYSQL_CFG, need_mysql, need_pg, PG_CFG
 
 
 def _num(x) -> float:

@@ -22,6 +22,7 @@ from typing import Dict, Optional
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 
 from core.ctx import request_ctx
@@ -29,7 +30,6 @@ from core.metering import metering
 from gateway_api import admin_router, user_router
 from gateway_config import ConfigStore, get_store, UserMeta
 from gateway_mcp_factory import create_mcp_for_endpoint
-from mcp.server.transport_security import TransportSecuritySettings
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -41,7 +41,6 @@ logger = logging.getLogger("gateway")
 #   /{db_type}/{id}         SSE (by id)
 #   /{db_type}/{id}/mcp     Streamable HTTP (by id)
 _mounted_apps: Dict[str, object] = {}
-
 
 # ---------------------------------------------------------------------------
 # Per-endpoint sub-apps: one Starlette serving SSE (/sse, /messages) and
@@ -116,7 +115,7 @@ async def _drop_session_manager(ep_id: str) -> None:
 async def _sync_mounts(app: FastAPI, store: ConfigStore) -> None:
     global _mounted_apps
 
-    desired: Dict[str, str] = {}   # mount path -> endpoint id
+    desired: Dict[str, str] = {}  # mount path -> endpoint id
     built: Dict[str, object] = {}  # endpoint id -> combined sub-app (one MCPServer per endpoint)
     for ep in store.list_endpoints():
         conn = store.get_connection(ep.connection_id)
@@ -277,4 +276,6 @@ async def route_regen_middleware(request: Request, call_next):
 
 if __name__ == "__main__":
     import uvicorn
+
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

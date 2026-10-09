@@ -6,9 +6,10 @@ from pathlib import Path
 
 import pytest
 
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from gateway_config import ConfigStore, ConnectionMeta, EndpointMeta, UserMeta, ACLEntry
+from gateway_config import ConfigStore, ConnectionMeta, EndpointMeta, UserMeta
 
 
 @pytest.fixture()
@@ -48,11 +49,13 @@ def test_legacy_pickle_migrated(tmp_path):
     legacy = tmp_path / "gateway_data.pkl"  # what ConfigStore(path) looks for
     conn = ConnectionMeta(alias="c1", db_type="pgsql", host="h2")
     with open(legacy, "wb") as f:
-        pickle.dump({"connections": [conn.model_dump()], "endpoints": [],
-                     "users": [], "acl": []}, f)
+        pickle.dump({
+            "connections": [conn.model_dump()], "endpoints": [],
+            "users": [], "acl": []
+        }, f)
     s = ConfigStore(js)
     assert s.get_connection_by_alias("c1").host == "h2"
-    assert js.exists()                                # migrated to JSON
+    assert js.exists()  # migrated to JSON
     assert tmp_path / "gateway_data.pkl.bak" in list(tmp_path.iterdir())  # backup kept
 
 

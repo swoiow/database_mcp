@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.sqlguard import ensure_readonly_select, extract_tables
@@ -23,9 +24,9 @@ def test_legit_select_allowed(sql, dialect):
 
 @pytest.mark.parametrize("sql,dialect", [
     ("WITH x AS (DELETE FROM t RETURNING *) SELECT * FROM x", "postgres"),  # data-modifying CTE
-    ("SELECT * INTO newtab FROM t", "postgres"),                            # SELECT INTO
-    ("SELECT a INTO OUTFILE '/tmp/x' FROM t", "mysql"),                     # INTO OUTFILE
-    ("SELECT 1; DROP TABLE users", "mysql"),                                # stacked
+    ("SELECT * INTO newtab FROM t", "postgres"),  # SELECT INTO
+    ("SELECT a INTO OUTFILE '/tmp/x' FROM t", "mysql"),  # INTO OUTFILE
+    ("SELECT 1; DROP TABLE users", "mysql"),  # stacked
     ("DELETE FROM t WHERE 1=1", "postgres"),
     ("UPDATE t SET a = 1", "mysql"),
     ("INSERT INTO t VALUES (1)", "mysql"),

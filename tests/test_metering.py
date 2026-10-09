@@ -1,9 +1,9 @@
 """Core unit tests: usage metering + rate limiter (R2 / P1-2)."""
 import sys
-import time
 from pathlib import Path
 
 import pytest
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -47,8 +47,8 @@ def test_metering_persists(tmp_path, monkeypatch):
 def test_ratelimit_allows_then_blocks():
     rl = RateLimiter(per_minute=3)
     assert all(rl.check("k") for _ in range(3))
-    assert not rl.check("k")          # 4th within the minute -> blocked
-    assert rl.check("other-key")      # independent bucket
+    assert not rl.check("k")  # 4th within the minute -> blocked
+    assert rl.check("other-key")  # independent bucket
 
 
 def test_ratelimit_window_slides():

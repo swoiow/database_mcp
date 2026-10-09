@@ -1,11 +1,16 @@
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection, create_async_engine
+
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+
 from core.base import BaseDriver
 from core.sqlguard import ensure_readonly_select
 
+
 SYSTEM_DBS = {"information_schema", "performance_schema", "mysql", "sys"}
+
 
 class MySQLDriver(BaseDriver):
     """MySQL driver using SQLAlchemy + aiomysql
@@ -13,7 +18,7 @@ class MySQLDriver(BaseDriver):
     """
 
     def _build_url(
-        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str]
+        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str],
     ) -> str:
         p = port or "3306"
         auth = f"{user}:{password}@" if user or password else ""
@@ -21,7 +26,7 @@ class MySQLDriver(BaseDriver):
         return f"mysql+aiomysql://{auth}{host}:{p}{db}"
 
     async def init_engine(
-        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str]
+        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str],
     ) -> AsyncEngine:
         return create_async_engine(
             self._build_url(host, user, password, db_name, port),
@@ -51,21 +56,23 @@ class MySQLDriver(BaseDriver):
             # fallback to current database
             db = (await conn.execute(text("SELECT DATABASE()"))).scalar_one()
         sql = """
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = :db AND table_type='BASE TABLE'
-        ORDER BY table_name;
-        """
+              SELECT table_name
+              FROM information_schema.tables
+              WHERE table_schema = :db
+                AND table_type = 'BASE TABLE'
+              ORDER BY table_name; \
+              """
         rows = await conn.execute(text(sql), {"db": db})
         return [r[0] for r in rows.fetchall()]
 
     async def _get_table_columns(self, conn: AsyncConnection, db: str, table: str) -> List[str]:
         sql = """
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_schema = :db AND table_name = :t
-        ORDER BY ordinal_position;
-        """
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = :db
+                AND table_name = :t
+              ORDER BY ordinal_position; \
+              """
         rows = await conn.execute(text(sql), {"db": db, "t": table})
         return [r[0] for r in rows.fetchall()]
 
@@ -74,16 +81,12 @@ class MySQLDriver(BaseDriver):
         if not db:
             db = (await conn.execute(text("SELECT DATABASE()"))).scalar_one()
         sql = """
-        SELECT
-            column_name,
-            column_type,
-            is_nullable,
-            column_default,
-            column_comment
-        FROM information_schema.columns
-        WHERE table_schema = :db AND table_name = :t
-        ORDER BY ordinal_position;
-        """
+              SELECT column_name, column_type, is_nullable, column_default, column_comment
+              FROM information_schema.columns
+              WHERE table_schema = :db
+                AND table_name = :t
+              ORDER BY ordinal_position; \
+              """
         rs = await conn.execute(text(sql), {"db": db, "t": table})
         rows = rs.fetchall()
         out = [

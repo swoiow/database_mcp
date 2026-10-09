@@ -33,7 +33,7 @@ MYSQL_REACT = """/no_think
 """
 
 MYSQL_PROMPTS = {
-"analysis": MYSQL_ANALYSIS,
-"sql_rules": MYSQL_SQL_RULES,
-"react": MYSQL_REACT,
+    "analysis": MYSQL_ANALYSIS,
+    "sql_rules": MYSQL_SQL_RULES,
+    "react": MYSQL_REACT,
 }

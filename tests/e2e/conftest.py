@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO))
 
@@ -38,6 +39,7 @@ PG_CFG = {
 def _mysql_up_once() -> bool:
     try:
         import pymysql
+
         conn = pymysql.connect(connect_timeout=3, **MYSQL_CFG)
         with conn.cursor() as cur:
             cur.execute("SELECT 1")
@@ -70,6 +72,7 @@ def _wait_for_db(check, timeout: int = 90, interval: int = 2) -> bool:
     Timeout is tunable via E2E_WAIT_TIMEOUT (seconds).
     """
     import time
+
     deadline = time.monotonic() + timeout
     while True:
         if check():
@@ -85,8 +88,10 @@ dbs_up = {
     "postgres": _wait_for_db(_pg_up_once, timeout=_WAIT_TIMEOUT),
 }
 
-need_mysql = pytest.mark.skipif(not dbs_up["mysql"], reason="MySQL not reachable (start .github/docker-compose.e2e.yml)")
-need_pg = pytest.mark.skipif(not dbs_up["postgres"], reason="PostgreSQL not reachable (start .github/docker-compose.e2e.yml)")
+need_mysql = pytest.mark.skipif(not dbs_up["mysql"],
+                                reason="MySQL not reachable (start .github/docker-compose.e2e.yml)")
+need_pg = pytest.mark.skipif(not dbs_up["postgres"],
+                             reason="PostgreSQL not reachable (start .github/docker-compose.e2e.yml)")
 
 
 class Gateway:
@@ -150,8 +155,9 @@ class Gateway:
             h["Mcp-Session-Id"] = session_id
         return h
 
-    def mcp(self, base: str, token: str, method: str, params: dict,
-            session_id: str | None = None, req_id: int = 1) -> dict:
+    def mcp(
+        self, base: str, token: str, method: str, params: dict,
+        session_id: str | None = None, req_id: int = 1) -> dict:
         r = self.c.post(base + "/mcp",
                         json={"jsonrpc": "2.0", "id": req_id, "method": method, "params": params},
                         headers=self._headers(token, session_id))
@@ -163,9 +169,13 @@ class Gateway:
     def session(self, base: str, token: str) -> str:
         r = self.c.post(
             base + "/mcp",
-            json={"jsonrpc": "2.0", "id": 1, "method": "initialize",
-                  "params": {"protocolVersion": "2025-06-18", "capabilities": {},
-                             "clientInfo": {"name": "e2e", "version": "1"}}},
+            json={
+                "jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18", "capabilities": {},
+                    "clientInfo": {"name": "e2e", "version": "1"}
+                }
+            },
             headers=self._headers(token),
         )
         assert r.status_code == 200, r.text[:200]
@@ -211,10 +221,12 @@ def gw(tmp_path_factory):
     os.environ["DBMCP_AUDIT_PATH"] = str(tmp / "audit.log")
     os.environ["DBMCP_METERING_PATH"] = str(tmp / "metering.json")
     import gateway_config
+
     gateway_config.store = gateway_config.ConfigStore(path=str(tmp / "gateway_data.json"))
     try:
         import gateway
         from fastapi.testclient import TestClient
+
         with TestClient(gateway.app) as client:
             yield Gateway(client)
     finally:

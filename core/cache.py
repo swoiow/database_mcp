@@ -1,13 +1,16 @@
 from __future__ import annotations
+
 import asyncio
-import time
 import json
-from typing import Any, Dict, Tuple, Callable, Awaitable, Optional
+import time
+from typing import Any, Dict, Optional, Tuple
+
 
 class TTLCache:
     """Simple async-safe TTL cache (in-process)
     简单的进程内异步安全 TTL 缓存
     """
+
     def __init__(self, maxsize: int = 256):
         self._maxsize = maxsize
         self._store: Dict[str, Tuple[float, Any]] = {}
@@ -31,6 +34,7 @@ class TTLCache:
                 oldest = min(self._store.items(), key=lambda kv: kv[1][0])[0]
                 self._store.pop(oldest, None)
             self._store[key] = (time.time() + ttl, value)
+
 
 def mk_cache_key(func: str, payload: Dict[str, Any]) -> str:
     return f"{func}:{json.dumps(payload, sort_keys=True, ensure_ascii=False)}"

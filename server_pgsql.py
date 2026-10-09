@@ -33,10 +33,12 @@ cache = TTLCache(maxsize=512)
 driver = PGSQLDriver()
 mcp = MCPServer("DB-MCP-PGSQL")
 
+
 # ---------- Resources: prompts ----------
 def _prompt_reader(text: str):
     def _read() -> str:
         return text
+
     return _read
 
 
@@ -159,7 +161,6 @@ async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
 # (MCPServer has no `.app` attribute; the old Dockerfile target `mcp.app`
 # crashed with AttributeError.)
 app = mcp.sse_app(message_path="/messages")  # mcp 2.x defaults to "/messages/"; keep v1 URL
-
 
 if __name__ == "__main__":
     import uvicorn

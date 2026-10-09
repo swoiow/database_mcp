@@ -1,9 +1,13 @@
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection, create_async_engine
+
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
+
 from core.base import BaseDriver
 from core.sqlguard import ensure_readonly_select
+
 
 class PGSQLDriver(BaseDriver):
     """PostgreSQL driver using SQLAlchemy + asyncpg
@@ -11,7 +15,7 @@ class PGSQLDriver(BaseDriver):
     """
 
     def _build_url(
-        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str]
+        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str],
     ) -> str:
         p = port or "5432"
         auth = f"{user}:{password}@" if user or password else ""
@@ -19,7 +23,7 @@ class PGSQLDriver(BaseDriver):
         return f"postgresql+asyncpg://{auth}{host}:{p}{db}"
 
     async def init_engine(
-        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str]
+        self, host: str, user: str, password: str, db_name: Optional[str], port: Optional[str],
     ) -> AsyncEngine:
         return create_async_engine(
             self._build_url(host, user, password, db_name, port),
@@ -33,11 +37,11 @@ class PGSQLDriver(BaseDriver):
 
     async def get_all_schemas(self, conn: AsyncConnection) -> Dict[str, Any]:
         sql = """
-        SELECT schema_name
-        FROM information_schema.schemata
-        WHERE schema_name NOT IN ('pg_catalog','information_schema')
-        ORDER BY schema_name;
-        """
+              SELECT schema_name
+              FROM information_schema.schemata
+              WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+              ORDER BY schema_name; \
+              """
         schemas = [r[0] for r in (await conn.execute(text(sql))).fetchall()]
         out: Dict[str, Any] = {}
         for s in schemas:
@@ -50,21 +54,23 @@ class PGSQLDriver(BaseDriver):
         if not scope:
             raise ValueError("schema is required for PostgreSQL / PostgreSQL 必须提供 schema")
         sql = """
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = :s AND table_type='BASE TABLE'
-        ORDER BY table_name;
-        """
+              SELECT table_name
+              FROM information_schema.tables
+              WHERE table_schema = :s
+                AND table_type = 'BASE TABLE'
+              ORDER BY table_name; \
+              """
         rows = await conn.execute(text(sql), {"s": scope})
         return [r[0] for r in rows.fetchall()]
 
     async def _get_table_columns(self, conn: AsyncConnection, schema: str, table: str) -> List[str]:
         sql = """
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_schema = :s AND table_name = :t
-        ORDER BY ordinal_position;
-        """
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = :s
+                AND table_name = :t
+              ORDER BY ordinal_position; \
+              """
         rows = await conn.execute(text(sql), {"s": schema, "t": table})
         return [r[0] for r in rows.fetchall()]
 
@@ -72,22 +78,16 @@ class PGSQLDriver(BaseDriver):
         if not scope:
             raise ValueError("schema is required for PostgreSQL / PostgreSQL 必须提供 schema")
         sql = """
-        SELECT
-            c.column_name,
-            c.data_type,
-            c.is_nullable,
-            c.column_default,
-            pgd.description
-        FROM information_schema.columns c
-        LEFT JOIN pg_catalog.pg_statio_all_tables st
-          ON st.schemaname = c.table_schema
-         AND st.relname = c.table_name
-        LEFT JOIN pg_catalog.pg_description pgd
-          ON pgd.objoid = st.relid
-         AND pgd.objsubid = c.ordinal_position
-        WHERE c.table_schema = :s AND c.table_name = :t
-        ORDER BY c.ordinal_position;
-        """
+              SELECT c.column_name, c.data_type, c.is_nullable, c.column_default, pgd.description
+              FROM information_schema.columns c
+                     LEFT JOIN pg_catalog.pg_statio_all_tables st
+                               ON st.schemaname = c.table_schema AND st.relname = c.table_name
+                     LEFT JOIN pg_catalog.pg_description pgd
+                               ON pgd.objoid = st.relid AND pgd.objsubid = c.ordinal_position
+              WHERE c.table_schema = :s
+                AND c.table_name = :t
+              ORDER BY c.ordinal_position; \
+              """
         rs = await conn.execute(text(sql), {"s": scope, "t": table})
         rows = rs.fetchall()
         out = [

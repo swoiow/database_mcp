@@ -32,7 +32,7 @@ PG_REACT = """/no_think
 """
 
 PG_PROMPTS = {
-"analysis": PG_ANALYSIS,
-"sql_rules": PG_SQL_RULES,
-"react": PG_REACT,
+    "analysis": PG_ANALYSIS,
+    "sql_rules": PG_SQL_RULES,
+    "react": PG_REACT,
 }

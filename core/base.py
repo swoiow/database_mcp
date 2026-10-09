@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection
+
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 
 class BaseDriver(ABC):
@@ -39,7 +41,7 @@ class BaseDriver(ABC):
 
     @abstractmethod
     async def get_table_schema(
-        self, conn: AsyncConnection, scope: Optional[str], table: str
+        self, conn: AsyncConnection, scope: Optional[str], table: str,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod

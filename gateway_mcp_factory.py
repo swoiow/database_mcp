@@ -15,9 +15,9 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from mcp.server.mcpserver import MCPServer
 
 from core.audit import audit_event
-from core.cache import TTLCache, mk_cache_key
+from core.cache import mk_cache_key, TTLCache
 from core.ctx import get_ctx
-from core.engines import connect_checked, get_engine
+from core.engines import connect_checked
 from core.metering import metering
 from core.ratelimit import ratelimiter
 from core.sqlguard import extract_tables
@@ -32,7 +32,6 @@ logger = logging.getLogger("gateway.mcp_factory")
 
 _mysql_driver = MySQLDriver()
 _pgsql_driver = PGSQLDriver()
-
 
 # ---------------------------------------------------------------------------
 # Runtime guards (env-configurable)
@@ -121,7 +120,6 @@ def _build_conn_args(conn: ConnectionMeta) -> Dict[str, str]:
         "db_name": conn.db_name,
     }
 
-
     def _connect() -> Any:
         # Returns an async context manager (core.engines.connect_checked),
         # so call sites use `async with _connect() as cn:` (no await).
@@ -144,6 +142,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     def _prompt_reader(text: str):
         def _read() -> str:
             return text
+
         return _read
 
     for name, text_md in MYSQL_PROMPTS.items():
@@ -168,8 +167,9 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         return MYSQL_PROMPTS[name]
 
     @mcp.tool(name="get_all_schemas", description="List databases and tables/columns (filtered by endpoint scope).")
-    async def get_all_schemas(use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                              ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def get_all_schemas(
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         async def _do() -> Dict[str, Any]:
             async with _connect() as cn:
                 raw = await driver.get_all_schemas(cn)
@@ -185,40 +185,49 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
                 if kept:
                     filtered[db_name] = {"tables": kept}
             return filtered
+
         return await _run_tool("get_all_schemas", ep, {}, _do,
                                use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="get_tables", description="List tables (filtered by endpoint scope).")
-    async def get_tables(database: Optional[str] = None,
-                         use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                         ttl: int = _CACHE_TTL_DEFAULT) -> List[str]:
+    async def get_tables(
+        database: Optional[str] = None,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> List[str]:
         scope = database or conn.db_name
+
         async def _do() -> List[str]:
             async with _connect() as cn:
                 raw = await driver.get_tables(cn, scope)
             return ep.filter_tables(raw, scope)
+
         return await _run_tool("get_tables", ep, {"database": scope}, _do,
                                use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="get_table_schema", description="Describe a table (blocked if outside endpoint scope).")
-    async def get_table_schema(table: str, database: Optional[str] = None,
-                               use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                               ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def get_table_schema(
+        table: str, database: Optional[str] = None,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         scope = database or conn.db_name
+
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted and not ep.is_table_allowed(table, scope):
                 raise ValueError(f"Access denied: table '{table}' is not in the allowed list.")
             async with _connect() as cn:
                 return await driver.get_table_schema(cn, scope, table)
+
         return await _run_tool("get_table_schema", ep,
                                {"table": table, "database": scope}, _do,
                                use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="execute_sql", description="Execute read-only SELECT (validated against endpoint scope).")
-    async def execute_sql(sql: str, max_rows: int = 2000,
-                          use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                          ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def execute_sql(
+        sql: str, max_rows: int = 2000,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         max_rows = _clamp_rows(max_rows)
+
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted:
                 _validate_sql_tables(sql, ep, "mysql")
@@ -226,6 +235,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
                 return await asyncio.wait_for(
                     driver.run_select_json(cn, sql, max_rows),
                     timeout=_QUERY_TIMEOUT)
+
         return await _run_tool("execute_sql", ep,
                                {"sql": sql, "max_rows": max_rows}, _do,
                                dialect="mysql",
@@ -247,6 +257,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     def _prompt_reader(text: str):
         def _read() -> str:
             return text
+
         return _read
 
     for name, text_md in PG_PROMPTS.items():
@@ -269,8 +280,9 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         return PG_PROMPTS[name]
 
     @mcp.tool(name="get_all_schemas", description="List schemas and tables/columns (filtered by endpoint scope).")
-    async def get_all_schemas(use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                              ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def get_all_schemas(
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         async def _do() -> Dict[str, Any]:
             async with _connect() as cn:
                 raw = await driver.get_all_schemas(cn)
@@ -286,42 +298,51 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
                 if kept:
                     filtered[schema_name] = {"tables": kept}
             return filtered
+
         return await _run_tool("get_all_schemas", ep, {}, _do, dialect="postgres",
                                use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="get_tables", description="List tables (filtered by endpoint scope).")
-    async def get_tables(schema: Optional[str] = None,
-                         use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                         ttl: int = _CACHE_TTL_DEFAULT) -> List[str]:
+    async def get_tables(
+        schema: Optional[str] = None,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> List[str]:
         if not schema:
             raise ValueError("schema is required for PostgreSQL")
+
         async def _do() -> List[str]:
             async with _connect() as cn:
                 raw = await driver.get_tables(cn, schema)
             return ep.filter_tables(raw, schema)
+
         return await _run_tool("get_tables", ep, {"schema": schema}, _do,
                                dialect="postgres", use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="get_table_schema", description="Describe a table (blocked if outside endpoint scope).")
-    async def get_table_schema(table: str, schema: Optional[str] = None,
-                               use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                               ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def get_table_schema(
+        table: str, schema: Optional[str] = None,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         if not schema:
             raise ValueError("schema is required for PostgreSQL")
+
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted and not ep.is_table_allowed(table, schema):
                 raise ValueError(f"Access denied: table '{table}' is not in the allowed list.")
             async with _connect() as cn:
                 return await driver.get_table_schema(cn, schema, table)
+
         return await _run_tool("get_table_schema", ep,
                                {"table": table, "schema": schema}, _do,
                                dialect="postgres", use_cache=use_cache, ttl=ttl)
 
     @mcp.tool(name="execute_sql", description="Execute read-only SELECT (validated against endpoint scope).")
-    async def execute_sql(sql: str, max_rows: int = 2000,
-                          use_cache: bool = _CACHE_ENABLED_DEFAULT,
-                          ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
+    async def execute_sql(
+        sql: str, max_rows: int = 2000,
+        use_cache: bool = _CACHE_ENABLED_DEFAULT,
+        ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         max_rows = _clamp_rows(max_rows)
+
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted:
                 _validate_sql_tables(sql, ep, "postgres")
@@ -329,6 +350,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
                 return await asyncio.wait_for(
                     driver.run_select_json(cn, sql, max_rows),
                     timeout=_QUERY_TIMEOUT)
+
         return await _run_tool("execute_sql", ep,
                                {"sql": sql, "max_rows": max_rows}, _do,
                                dialect="postgres",
