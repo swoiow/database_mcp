@@ -1,1290 +1,1736 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta content="width=device-width, initial-scale=1.0" name="viewport">
-  <title>DB-MCP Gateway 管理后台</title>
-  <style>
-    :root {
-      --bg: #f5f6fa;
-      --surface: #fff;
-      --surface2: #f0f1f5;
-      --border: #e0e2ea;
-      --text: #1a1d2e;
-      --text2: #6b7084;
-      --accent: #4a7de6;
-      --accent2: #3b6dd4;
-      --accent-surface: #eef3fd;
-      --danger: #d63a3f;
-      --danger-surface: #fdeaeb;
-      --success: #1f8a56;
-      --radius: 6px;
-      --shadow: 0 1px 3px rgba(0, 0, 0, .06);
-    }
-
-    [data-theme="dark"] {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #242836;
-      --border: #2e3347;
-      --text: #e2e4ed;
-      --text2: #9ca0b0;
-      --accent: #5b8af5;
-      --accent2: #4a7de6;
-      --accent-surface: #1a2744;
-      --danger: #e5484d;
-      --danger-surface: #2e1a1b;
-      --success: #30a46c;
-      --shadow: none;
-    }
-
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh
-    }
-
-    .app {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh
-    }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 12px 28px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow)
-    }
-
-    .topbar h1 {
-      font-size: 17px;
-      font-weight: 700;
-      letter-spacing: -.3px
-    }
-
-    .topbar .badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 500
-    }
-
-    .topbar .stats {
-      margin-left: auto;
-      font-size: 13px;
-      color: var(--text2);
-      white-space: nowrap
-    }
-
-    .topbar .theme-toggle {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      width: 34px;
-      height: 34px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text2);
-      font-size: 16px;
-      transition: background .15s
-    }
-
-    .topbar .theme-toggle:hover {
-      background: var(--border);
-      color: var(--text)
-    }
-
-    .tabs {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      padding: 0 28px
-    }
-
-    .tab-btn {
-      background: none;
-      border: none;
-      color: var(--text2);
-      padding: 11px 20px;
-      font-size: 14px;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all .15s
-    }
-
-    .tab-btn:hover {
-      color: var(--text)
-    }
-
-    .tab-btn.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
-      font-weight: 500
-    }
-
-    .main {
-      flex: 1;
-      padding: 24px 28px
-    }
-
-    .panel {
-      display: none
-    }
-
-    .panel.active {
-      display: block
-    }
-
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      flex-wrap: wrap
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all .15s;
-      white-space: nowrap
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: #fff
-    }
-
-    .btn-primary:hover {
-      background: var(--accent2)
-    }
-
-    .btn-danger {
-      background: transparent;
-      color: var(--danger);
-      border: 1px solid var(--danger)
-    }
-
-    .btn-danger:hover {
-      background: var(--danger-surface)
-    }
-
-    .btn-sm {
-      padding: 4px 10px;
-      font-size: 12px
-    }
-
-    .btn-ghost {
-      background: var(--surface2);
-      color: var(--text);
-      border: 1px solid var(--border)
-    }
-
-    .btn-ghost:hover {
-      background: var(--border)
-    }
-
-    .btn:disabled {
-      opacity: .45;
-      cursor: not-allowed
-    }
-
-    .btn:disabled:hover {
-      background: var(--surface2)
-    }
-
-    .btn-primary:disabled:hover {
-      background: var(--accent)
-    }
-
-    .search-box {
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-      width: 220px
-    }
-
-    .search-box:focus {
-      border-color: var(--accent)
-    }
-
-    .filter-select {
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-size: 13px;
-      outline: none
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: var(--surface);
-      border-radius: var(--radius);
-      overflow: hidden;
-      border: 1px solid var(--border)
-    }
-
-    th, td {
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 13px;
-      border-bottom: 1px solid var(--border)
-    }
-
-    th {
-      background: var(--surface2);
-      color: var(--text2);
-      font-weight: 600;
-      font-size: 12px;
-      letter-spacing: .3px;
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap
-    }
-
-    th:hover {
-      color: var(--text)
-    }
-
-    th .sort-arrow {
-      font-size: 10px;
-      margin-left: 4px;
-      opacity: .3
-    }
-
-    th.sorted .sort-arrow {
-      opacity: 1;
-      color: var(--accent)
-    }
-
-    tr:hover td {
-      background: var(--accent-surface)
-    }
-
-    .mono {
-      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-      font-size: 12px
-    }
-
-    .tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600
-    }
-
-    .tag-mysql {
-      background: #e1edfb;
-      color: #2a6cc4
-    }
-
-    .tag-pgsql {
-      background: #daf5e7;
-      color: #1a7f4b
-    }
-
-    .tag-admin {
-      background: #fef3d6;
-      color: #946800
-    }
-
-    [data-theme="dark"] .tag-mysql {
-      background: #1a3a5c;
-      color: #5ba8f5
-    }
-
-    [data-theme="dark"] .tag-pgsql {
-      background: #1a3c2e;
-      color: #4ade80
-    }
-
-    [data-theme="dark"] .tag-admin {
-      background: #3c2e1a;
-      color: #f5a623
-    }
-
-    .overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      background: rgba(0, 0, 0, .3);
-      align-items: center;
-      justify-content: center
-    }
-
-    [data-theme="dark"] .overlay {
-      background: rgba(0, 0, 0, .55)
-    }
-
-    .overlay.open {
-      display: flex
-    }
-
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px;
-      width: 580px;
-      max-width: 95vw;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, .12)
-    }
-
-    .modal h2 {
-      font-size: 16px;
-      margin-bottom: 18px;
-      font-weight: 600
-    }
-
-    .field {
-      margin-bottom: 14px
-    }
-
-    .field label {
-      display: block;
-      font-size: 12px;
-      color: var(--text2);
-      margin-bottom: 4px;
-      font-weight: 500
-    }
-
-    .field input, .field select, .field textarea {
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-size: 13px;
-      outline: none
-    }
-
-    .field textarea {
-      min-height: 80px;
-      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-      font-size: 12px;
-      resize: vertical
-    }
-
-    .field input:focus, .field select:focus, .field textarea:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-surface)
-    }
-
-    .field-row {
-      display: flex;
-      gap: 12px
-    }
-
-    .field-row .field {
-      flex: 1
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 18px
-    }
-
-    .toast-area {
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 200;
-      display: flex;
-      flex-direction: column;
-      gap: 8px
-    }
-
-    .toast {
-      padding: 10px 18px;
-      border-radius: var(--radius);
-      font-size: 13px;
-      animation: fadeIn .2s
-    }
-
-    .toast-ok {
-      background: var(--success);
-      color: #fff
-    }
-
-    .toast-err {
-      background: var(--danger);
-      color: #fff
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-8px)
+  <head>
+    <meta charset="UTF-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>DB-MCP Gateway 管理后台</title>
+    <style>
+      :root {
+        --bg: #f5f6fa;
+        --surface: #fff;
+        --surface2: #f0f1f5;
+        --border: #e0e2ea;
+        --text: #1a1d2e;
+        --text2: #6b7084;
+        --accent: #4a7de6;
+        --accent2: #3b6dd4;
+        --accent-surface: #eef3fd;
+        --danger: #d63a3f;
+        --danger-surface: #fdeaeb;
+        --success: #1f8a56;
+        --radius: 6px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
-      to {
+
+      [data-theme="dark"] {
+        --bg: #0f1117;
+        --surface: #1a1d27;
+        --surface2: #242836;
+        --border: #2e3347;
+        --text: #e2e4ed;
+        --text2: #9ca0b0;
+        --accent: #5b8af5;
+        --accent2: #4a7de6;
+        --accent-surface: #1a2744;
+        --danger: #e5484d;
+        --danger-surface: #2e1a1b;
+        --success: #30a46c;
+        --shadow: none;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .app {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 28px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+
+      .topbar h1 {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+
+      .topbar .badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 500;
+      }
+
+      .topbar .stats {
+        margin-left: auto;
+        font-size: 13px;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+
+      .topbar .theme-toggle {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        width: 34px;
+        height: 34px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text2);
+        font-size: 16px;
+        transition: background 0.15s;
+      }
+
+      .topbar .theme-toggle:hover {
+        background: var(--border);
+        color: var(--text);
+      }
+
+      .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        padding: 0 28px;
+      }
+
+      .tab-btn {
+        background: none;
+        border: none;
+        color: var(--text2);
+        padding: 11px 20px;
+        font-size: 14px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+
+      .tab-btn:hover {
+        color: var(--text);
+      }
+
+      .tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        font-weight: 500;
+      }
+
+      .main {
+        flex: 1;
+        padding: 24px 28px;
+      }
+
+      .panel {
+        display: none;
+      }
+
+      .panel.active {
+        display: block;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent2);
+      }
+
+      .btn-danger {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid var(--danger);
+      }
+
+      .btn-danger:hover {
+        background: var(--danger-surface);
+      }
+
+      .btn-sm {
+        padding: 4px 10px;
+        font-size: 12px;
+      }
+
+      .btn-ghost {
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      .btn-ghost:hover {
+        background: var(--border);
+      }
+
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .btn:disabled:hover {
+        background: var(--surface2);
+      }
+
+      .btn-primary:disabled:hover {
+        background: var(--accent);
+      }
+
+      .search-box {
+        padding: 8px 14px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+        width: 220px;
+      }
+
+      .search-box:focus {
+        border-color: var(--accent);
+      }
+
+      .filter-select {
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface);
+        border-radius: var(--radius);
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+
+      th,
+      td {
+        padding: 10px 14px;
+        text-align: left;
+        font-size: 13px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      th {
+        background: var(--surface2);
+        color: var(--text2);
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      th:hover {
+        color: var(--text);
+      }
+
+      th .sort-arrow {
+        font-size: 10px;
+        margin-left: 4px;
+        opacity: 0.3;
+      }
+
+      th.sorted .sort-arrow {
         opacity: 1;
-        transform: none
+        color: var(--accent);
       }
-    }
 
-    .empty {
-      color: var(--text2);
-      font-size: 14px;
-      padding: 40px 0;
-      text-align: center
-    }
+      tr:hover td {
+        background: var(--accent-surface);
+      }
 
-    .actions-cell {
-      display: flex;
-      gap: 6px;
-      white-space: nowrap
-    }
+      .mono {
+        font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+        font-size: 12px;
+      }
 
-    .token-display {
-      display: flex;
-      align-items: center;
-      gap: 6px
-    }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+      }
 
-    .token-display code {
-      background: var(--surface2);
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      user-select: all;
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: inline-block
-    }
+      .tag-mysql {
+        background: #e1edfb;
+        color: #2a6cc4;
+      }
 
-    .pagination {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 16px
-    }
+      .tag-pgsql {
+        background: #daf5e7;
+        color: #1a7f4b;
+      }
 
-    .pagination .btn {
-      min-width: 36px;
-      justify-content: center
-    }
+      .tag-admin {
+        background: #fef3d6;
+        color: #946800;
+      }
 
-    .pagination .page-info {
-      font-size: 13px;
-      color: var(--text2)
-    }
+      [data-theme="dark"] .tag-mysql {
+        background: #1a3a5c;
+        color: #5ba8f5;
+      }
 
-    .import-hint {
-      font-size: 12px;
-      color: var(--text2);
-      margin-bottom: 8px;
-      line-height: 1.5
-    }
+      [data-theme="dark"] .tag-pgsql {
+        background: #1a3c2e;
+        color: #4ade80;
+      }
 
-    .mcp-path {
-      font-size: 12px;
-      color: var(--accent);
-      font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
-      white-space: nowrap
-    }
+      [data-theme="dark"] .tag-admin {
+        background: #3c2e1a;
+        color: #f5a623;
+      }
 
-    .mcp-path-label {
-      font-size: 11px;
-      color: var(--text2);
-      margin-right: 4px
-    }
+      .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.3);
+        align-items: center;
+        justify-content: center;
+      }
 
-    .scope-badge {
-      display: inline-block;
-      font-size: 11px;
-      padding: 1px 6px;
-      border-radius: 3px;
-      background: var(--accent-surface);
-      color: var(--accent);
-      font-weight: 600;
-      margin: 1px 2px 1px 0
-    }
+      [data-theme="dark"] .overlay {
+        background: rgba(0, 0, 0, 0.55);
+      }
 
-    .scope-badge.full {
-      background: #e8f5e9;
-      color: #2e7d32
-    }
+      .overlay.open {
+        display: flex;
+      }
 
-    [data-theme="dark"] .scope-badge.full {
-      background: #1a3c2e;
-      color: #4ade80
-    }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 24px;
+        width: 580px;
+        max-width: 95vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      }
 
-    .section-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-      margin: 14px 0 8px;
-      padding-bottom: 4px;
-      border-bottom: 1px solid var(--border)
-    }
-  </style>
-</head>
-<body>
-<div class="app">
-  <div class="topbar">
-    <h1>DB-MCP Gateway</h1>
-    <span class="badge">管理后台</span>
-    <span class="stats" id="stats"></span>
-    <input type="password" id="admin-token" class="search-box" placeholder="Admin Token" title="ADMIN_TOKEN（环境变量），用于访问 /admin/api" style="width:170px" oninput="saveAdminToken()">
-    <button class="theme-toggle" onclick="toggleTheme()" title="切换主题"></button>
-  </div>
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('connections')">连接</button>
-    <button class="tab-btn" onclick="switchTab('endpoints')">端点</button>
-    <button class="tab-btn" onclick="switchTab('users')">用户</button>
-    <button class="tab-btn" onclick="switchTab('acl')">ACL</button>
-  </div>
-  <div class="main">
-    <!-- Connections -->
-    <div class="panel active" id="panel-connections">
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openConnModal()">+ 新建</button>
-        <button class="btn btn-ghost" onclick="openConnImportModal()">批量导入</button>
-        <select class="filter-select" id="conn-type-filter" onchange="renderConns()">
-          <option value="">全部类型</option>
-          <option value="mysql">MySQL</option>
-          <option value="pgsql">PostgreSQL</option>
-        </select>
-        <input class="search-box" id="conn-search" oninput="renderConns()" placeholder="搜索别名 / 主机 / 库名…">
+      .modal h2 {
+        font-size: 16px;
+        margin-bottom: 18px;
+        font-weight: 600;
+      }
+
+      .field {
+        margin-bottom: 14px;
+      }
+
+      .field label {
+        display: block;
+        font-size: 12px;
+        color: var(--text2);
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+
+      .field input,
+      .field select,
+      .field textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+      }
+
+      .field textarea {
+        min-height: 80px;
+        font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+        font-size: 12px;
+        resize: vertical;
+      }
+
+      .field input:focus,
+      .field select:focus,
+      .field textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-surface);
+      }
+
+      .field-row {
+        display: flex;
+        gap: 12px;
+      }
+
+      .field-row .field {
+        flex: 1;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .toast-area {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 200;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .toast {
+        padding: 10px 18px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        animation: fadeIn 0.2s;
+      }
+
+      .toast-ok {
+        background: var(--success);
+        color: #fff;
+      }
+
+      .toast-err {
+        background: var(--danger);
+        color: #fff;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .empty {
+        color: var(--text2);
+        font-size: 14px;
+        padding: 40px 0;
+        text-align: center;
+      }
+
+      .actions-cell {
+        display: table-cell;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+
+      .actions-cell .btn {
+        vertical-align: middle;
+      }
+
+      .actions-cell .btn + .btn {
+        margin-left: 6px;
+      }
+
+      .token-display {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .token-display code {
+        background: var(--surface2);
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+        cursor: pointer;
+        user-select: all;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+      }
+
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .pagination .btn {
+        min-width: 36px;
+        justify-content: center;
+      }
+
+      .pagination .page-info {
+        font-size: 13px;
+        color: var(--text2);
+      }
+
+      .import-hint {
+        font-size: 12px;
+        color: var(--text2);
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+
+      .mcp-path {
+        font-size: 12px;
+        color: var(--accent);
+        font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+        white-space: nowrap;
+      }
+
+      .mcp-path-label {
+        font-size: 11px;
+        color: var(--text2);
+        margin-right: 4px;
+      }
+
+      .scope-badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 3px;
+        background: var(--accent-surface);
+        color: var(--accent);
+        font-weight: 600;
+        margin: 1px 2px 1px 0;
+      }
+
+      .scope-badge.full {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      [data-theme="dark"] .scope-badge.full {
+        background: #1a3c2e;
+        color: #4ade80;
+      }
+
+      .section-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        margin: 14px 0 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <h1>DB-MCP Gateway</h1>
+        <span class="badge">管理后台</span>
+        <span class="stats" id="stats"></span>
+        <input
+          type="password"
+          id="admin-token"
+          class="search-box"
+          placeholder="Admin Token"
+          title="ADMIN_TOKEN（环境变量），用于访问 /admin/api"
+          style="width: 170px"
+          oninput="saveAdminToken()"
+        />
+        <button
+          class="theme-toggle"
+          onclick="toggleTheme()"
+          title="切换主题"
+        ></button>
       </div>
-      <table>
-        <thead>
-        <tr>
-          <th onclick="sortConns('alias')">别名 <span class="sort-arrow" id="conn-sort-arrow">▲</span></th>
-          <th>类型</th>
-          <th>主机</th>
-          <th>端口</th>
-          <th>用户</th>
-          <th>数据库</th>
-          <th>端点数</th>
-          <th>操作</th>
-        </tr>
-        </thead>
-        <tbody id="conn-tbody"></tbody>
-      </table>
-      <div class="empty" id="conn-empty" style="display:none">暂无连接，点击「新建」添加。</div>
-      <div class="pagination" id="conn-pagination"></div>
-    </div>
-
-    <!-- Endpoints -->
-    <div class="panel" id="panel-endpoints">
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openEpModal()">+ 新建端点</button>
-        <select class="filter-select" id="ep-conn-filter" onchange="renderEps()">
-          <option value="">全部连接</option>
-        </select>
-        <input class="search-box" id="ep-search" oninput="renderEps()" placeholder="搜索端点…">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('connections')">
+          连接
+        </button>
+        <button class="tab-btn" onclick="switchTab('endpoints')">端点</button>
+        <button class="tab-btn" onclick="switchTab('users')">用户</button>
+        <button class="tab-btn" onclick="switchTab('acl')">ACL</button>
       </div>
-      <table>
-        <thead>
-        <tr>
-          <th>别名</th>
-          <th>连接</th>
-          <th>类型</th>
-          <th>表范围</th>
-          <th>MCP 路径</th>
-          <th>操作</th>
-        </tr>
-        </thead>
-        <tbody id="ep-tbody"></tbody>
-      </table>
-      <div class="empty" id="ep-empty" style="display:none">暂无端点。创建一个端点以对外提供 MCP 服务。</div>
-    </div>
+      <div class="main">
+        <!-- Connections -->
+        <div class="panel active" id="panel-connections">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="openConnModal()">
+              + 新建
+            </button>
+            <button class="btn btn-ghost" onclick="openConnImportModal()">
+              批量导入
+            </button>
+            <select
+              class="filter-select"
+              id="conn-type-filter"
+              onchange="renderConns()"
+            >
+              <option value="">全部类型</option>
+              <option value="mysql">MySQL</option>
+              <option value="pgsql">PostgreSQL</option>
+            </select>
+            <input
+              class="search-box"
+              id="conn-search"
+              oninput="renderConns()"
+              placeholder="搜索别名 / 主机 / 库名…"
+            />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortConns('alias')">
+                  别名 <span class="sort-arrow" id="conn-sort-arrow">▲</span>
+                </th>
+                <th>类型</th>
+                <th>主机</th>
+                <th>端口</th>
+                <th>用户</th>
+                <th>数据库</th>
+                <th>端点数</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="conn-tbody"></tbody>
+          </table>
+          <div class="empty" id="conn-empty" style="display: none">
+            暂无连接，点击「新建」添加。
+          </div>
+          <div class="pagination" id="conn-pagination"></div>
+        </div>
 
-    <!-- Users -->
-    <div class="panel" id="panel-users">
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openUserModal()">+ 新建用户</button>
+        <!-- Endpoints -->
+        <div class="panel" id="panel-endpoints">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="openEpModal()">
+              + 新建端点
+            </button>
+            <select
+              class="filter-select"
+              id="ep-conn-filter"
+              onchange="renderEps()"
+            >
+              <option value="">全部连接</option>
+            </select>
+            <input
+              class="search-box"
+              id="ep-search"
+              oninput="renderEps()"
+              placeholder="搜索端点…"
+            />
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>别名</th>
+                <th>连接</th>
+                <th>类型</th>
+                <th>表范围</th>
+                <th>MCP 路径</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="ep-tbody"></tbody>
+          </table>
+          <div class="empty" id="ep-empty" style="display: none">
+            暂无端点。创建一个端点以对外提供 MCP 服务。
+          </div>
+        </div>
+
+        <!-- Users -->
+        <div class="panel" id="panel-users">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="openUserModal()">
+              + 新建用户
+            </button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>用户名</th>
+                <th>令牌</th>
+                <th>角色</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="user-tbody"></tbody>
+          </table>
+          <div class="empty" id="user-empty" style="display: none">
+            暂无用户。
+          </div>
+        </div>
+
+        <!-- ACL -->
+        <div class="panel" id="panel-acl">
+          <div class="toolbar">
+            <button class="btn btn-primary" onclick="openAclModal()">
+              + 添加规则
+            </button>
+            <button class="btn btn-ghost" onclick="openAclBatchModal()">
+              批量分配
+            </button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>端点</th>
+                <th>连接</th>
+                <th>表范围</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="acl-tbody"></tbody>
+          </table>
+          <div class="empty" id="acl-empty" style="display: none">
+            暂无 ACL 规则。
+          </div>
+        </div>
       </div>
-      <table>
-        <thead>
-        <tr>
-          <th>用户名</th>
-          <th>令牌</th>
-          <th>角色</th>
-          <th>操作</th>
-        </tr>
-        </thead>
-        <tbody id="user-tbody"></tbody>
-      </table>
-      <div class="empty" id="user-empty" style="display:none">暂无用户。</div>
     </div>
 
-    <!-- ACL -->
-    <div class="panel" id="panel-acl">
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="openAclModal()">+ 添加规则</button>
-        <button class="btn btn-ghost" onclick="openAclBatchModal()">批量分配</button>
+    <!-- Connection Modal -->
+    <div class="overlay" id="conn-modal">
+      <div class="modal">
+        <h2 id="conn-modal-title">新建连接</h2>
+        <input id="conn-edit-id" type="hidden" />
+        <div class="field">
+          <label>别名</label
+          ><input id="conn-alias" placeholder="例如：prod-mysql" />
+        </div>
+        <div class="field">
+          <label>类型</label
+          ><select id="conn-type" onchange="autoPort()">
+            <option value="mysql">MySQL</option>
+            <option value="pgsql">PostgreSQL</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>主机</label><input id="conn-host" value="localhost" />
+          </div>
+          <div class="field">
+            <label>端口</label><input id="conn-port" value="3306" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>用户名</label><input id="conn-user" /></div>
+          <div class="field">
+            <label>密码</label><input id="conn-pass" type="password" />
+          </div>
+        </div>
+        <div class="field"><label>数据库</label><input id="conn-db" /></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('conn-modal')">
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="saveConn()">保存</button>
+        </div>
       </div>
-      <table>
-        <thead>
-        <tr>
-          <th>用户</th>
-          <th>端点</th>
-          <th>连接</th>
-          <th>表范围</th>
-          <th>操作</th>
-        </tr>
-        </thead>
-        <tbody id="acl-tbody"></tbody>
-      </table>
-      <div class="empty" id="acl-empty" style="display:none">暂无 ACL 规则。</div>
     </div>
-  </div>
-</div>
 
-<!-- Connection Modal -->
-<div class="overlay" id="conn-modal">
-  <div class="modal">
-    <h2 id="conn-modal-title">新建连接</h2>
-    <input id="conn-edit-id" type="hidden">
-    <div class="field"><label>别名</label><input id="conn-alias" placeholder="例如：prod-mysql"></div>
-    <div class="field"><label>类型</label><select id="conn-type" onchange="autoPort()">
-      <option value="mysql">MySQL</option>
-      <option value="pgsql">PostgreSQL</option>
-    </select></div>
-    <div class="field-row">
-      <div class="field"><label>主机</label><input id="conn-host" value="localhost"></div>
-      <div class="field"><label>端口</label><input id="conn-port" value="3306"></div>
+    <!-- Connection Batch Import -->
+    <div class="overlay" id="conn-import-modal">
+      <div class="modal">
+        <h2>批量导入连接</h2>
+        <div class="import-hint">
+          JSON 数组。必填：alias、db_type、host、user、password、db_name。
+        </div>
+        <div class="field">
+          <textarea
+            id="conn-import-json"
+            placeholder='[{"alias":"prod-mysql","db_type":"mysql","host":"10.0.0.1","user":"root","password":"s","db_name":"orders"}]'
+          ></textarea>
+        </div>
+        <div class="modal-actions">
+          <button
+            class="btn btn-ghost"
+            onclick="closeModal('conn-import-modal')"
+          >
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="doConnImport()">导入</button>
+        </div>
+      </div>
     </div>
-    <div class="field-row">
-      <div class="field"><label>用户名</label><input id="conn-user"></div>
-      <div class="field"><label>密码</label><input id="conn-pass" type="password"></div>
+
+    <!-- Endpoint Modal -->
+    <div class="overlay" id="ep-modal">
+      <div class="modal">
+        <h2 id="ep-modal-title">新建端点</h2>
+        <input id="ep-edit-id" type="hidden" />
+        <div class="field">
+          <label>端点别名（唯一，用于 URL）</label
+          ><input id="ep-alias" placeholder="例如：analytics-readonly" />
+        </div>
+        <div class="field">
+          <label>连接</label
+          ><select id="ep-conn"></select>
+        </div>
+        <div class="field">
+          <label>描述</label><input id="ep-desc" placeholder="选填" />
+        </div>
+        <div class="section-label">表范围</div>
+        <div class="import-hint">
+          留空表示允许所有表。每行一个表。格式：<code>table_name</code> 或
+          <code>schema.table_name</code>
+        </div>
+        <div class="field">
+          <textarea
+            id="ep-tables"
+            placeholder="orders&#10;public.users&#10;analytics.events"
+          ></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('ep-modal')">
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="saveEp()">保存</button>
+        </div>
+      </div>
     </div>
-    <div class="field"><label>数据库</label><input id="conn-db"></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('conn-modal')">取消</button>
-      <button class="btn btn-primary" onclick="saveConn()">保存</button>
+
+    <!-- User Modal -->
+    <div class="overlay" id="user-modal">
+      <div class="modal">
+        <h2>新建用户</h2>
+        <div class="field">
+          <label>用户名</label><input id="user-username" />
+        </div>
+        <div class="field">
+          <label
+            ><input id="user-admin" type="checkbox" style="width: auto" />
+            设为管理员</label
+          >
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('user-modal')">
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="saveUser()">保存</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- Connection Batch Import -->
-<div class="overlay" id="conn-import-modal">
-  <div class="modal">
-    <h2>批量导入连接</h2>
-    <div class="import-hint">JSON 数组。必填：alias、db_type、host、user、password、db_name。</div>
-    <div class="field"><textarea id="conn-import-json"
-                                 placeholder='[{"alias":"prod-mysql","db_type":"mysql","host":"10.0.0.1","user":"root","password":"s","db_name":"orders"}]'></textarea>
+    <!-- ACL Modal -->
+    <div class="overlay" id="acl-modal">
+      <div class="modal">
+        <h2>添加 ACL 规则</h2>
+        <div class="field">
+          <label>用户</label
+          ><select id="acl-user"></select>
+        </div>
+        <div class="field">
+          <label>端点</label
+          ><select id="acl-ep"></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('acl-modal')">
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="saveAcl()">保存</button>
+        </div>
+      </div>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('conn-import-modal')">取消</button>
-      <button class="btn btn-primary" onclick="doConnImport()">导入</button>
+
+    <!-- ACL Batch Modal -->
+    <div class="overlay" id="acl-batch-modal">
+      <div class="modal">
+        <h2>批量分配 ACL</h2>
+        <div class="field">
+          <label>用户</label
+          ><select id="acl-batch-user"></select>
+        </div>
+        <div class="field">
+          <label>端点（按住 Ctrl/Cmd 多选）</label
+          ><select
+            id="acl-batch-eps"
+            multiple
+            style="min-height: 160px"
+          ></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">
+            取消
+          </button>
+          <button class="btn btn-primary" onclick="saveAclBatch()">分配</button>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- Endpoint Modal -->
-<div class="overlay" id="ep-modal">
-  <div class="modal">
-    <h2 id="ep-modal-title">新建端点</h2>
-    <input id="ep-edit-id" type="hidden">
-    <div class="field"><label>端点别名（唯一，用于 URL）</label><input id="ep-alias" placeholder="例如：analytics-readonly"></div>
-    <div class="field"><label>连接</label><select id="ep-conn"></select></div>
-    <div class="field"><label>描述</label><input id="ep-desc" placeholder="选填"></div>
-    <div class="section-label">表范围</div>
-    <div class="import-hint">留空表示允许所有表。每行一个表。格式：<code>table_name</code> 或 <code>schema.table_name</code></div>
-    <div class="field"><textarea id="ep-tables" placeholder="orders&#10;public.users&#10;analytics.events"></textarea></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('ep-modal')">取消</button>
-      <button class="btn btn-primary" onclick="saveEp()">保存</button>
-    </div>
-  </div>
-</div>
+    <div class="toast-area" id="toast-area"></div>
 
-<!-- User Modal -->
-<div class="overlay" id="user-modal">
-  <div class="modal">
-    <h2>新建用户</h2>
-    <div class="field"><label>用户名</label><input id="user-username"></div>
-    <div class="field"><label><input id="user-admin" type="checkbox" style="width:auto"> 设为管理员</label></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('user-modal')">取消</button>
-      <button class="btn btn-primary" onclick="saveUser()">保存</button>
-    </div>
-  </div>
-</div>
+    <script>
+      const API = "/admin/api";
+      const PAGE = 20;
+      let allConns = [],
+        allEps = [],
+        allUsers = [],
+        allAcl = [];
+      let connPage = 1,
+        connSortKey = "alias",
+        connSortDir = 1;
 
-<!-- ACL Modal -->
-<div class="overlay" id="acl-modal">
-  <div class="modal">
-    <h2>添加 ACL 规则</h2>
-    <div class="field"><label>用户</label><select id="acl-user"></select></div>
-    <div class="field"><label>端点</label><select id="acl-ep"></select></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('acl-modal')">取消</button>
-      <button class="btn btn-primary" onclick="saveAcl()">保存</button>
-    </div>
-  </div>
-</div>
+      // Theme
+      function getTheme() {
+        return localStorage.getItem("dbmcp-theme") || "light";
+      }
 
-<!-- ACL Batch Modal -->
-<div class="overlay" id="acl-batch-modal">
-  <div class="modal">
-    <h2>批量分配 ACL</h2>
-    <div class="field"><label>用户</label><select id="acl-batch-user"></select></div>
-    <div class="field"><label>端点（按住 Ctrl/Cmd 多选）</label><select id="acl-batch-eps" multiple style="min-height:160px"></select></div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('acl-batch-modal')">取消</button>
-      <button class="btn btn-primary" onclick="saveAclBatch()">分配</button>
-    </div>
-  </div>
-</div>
+      function applyTheme(t) {
+        document.documentElement.setAttribute("data-theme", t);
+        document.querySelector(".theme-toggle").textContent =
+          t === "dark" ? "☀️" : "🌙";
+        localStorage.setItem("dbmcp-theme", t);
+      }
 
-<div class="toast-area" id="toast-area"></div>
+      function toggleTheme() {
+        applyTheme(getTheme() === "dark" ? "light" : "dark");
+      }
 
-<script>
-  const API = "/admin/api";
-  const PAGE = 20;
-  let allConns = [], allEps = [], allUsers = [], allAcl = [];
-  let connPage = 1, connSortKey = "alias", connSortDir = 1;
+      applyTheme(getTheme());
 
-  // Theme
-  function getTheme() {
-    return localStorage.getItem("dbmcp-theme") || "light"
-  }
+      // ---- Admin auth: attach ADMIN_TOKEN as Bearer header on every API call ----
+      function getAdminToken() {
+        return localStorage.getItem("dbmcp-admin-token") || "";
+      }
+      function saveAdminToken() {
+        localStorage.setItem(
+          "dbmcp-admin-token",
+          document.getElementById("admin-token").value.trim(),
+        );
+      }
+      async function apifetch(url, opts) {
+        opts = opts || {};
+        const headers = Object.assign({}, opts.headers || {});
+        const t = getAdminToken();
+        if (t) headers["Authorization"] = "Bearer " + t;
+        opts.headers = headers;
+        const r = await fetch(url, opts);
+        if (r.status === 401)
+          toast("Admin Token 缺失或无效：请在右上角输入后重试", false);
+        return r;
+      }
 
-  function applyTheme(t) {
-    document.documentElement.setAttribute("data-theme", t);
-    document.querySelector(".theme-toggle").textContent = t === "dark" ? "☀️" : "🌙";
-    localStorage.setItem("dbmcp-theme", t)
-  }
+      async function errText(r) {
+        try {
+          const e = await r.json();
+          return e.detail || "HTTP " + r.status;
+        } catch (_) {
+          return "HTTP " + r.status;
+        }
+      }
 
-  function toggleTheme() {
-    applyTheme(getTheme() === "dark" ? "light" : "dark")
-  }
+      function toast(m, ok = true) {
+        const e = document.createElement("div");
+        e.className = "toast " + (ok ? "toast-ok" : "toast-err");
+        e.textContent = m;
+        document.getElementById("toast-area").appendChild(e);
+        setTimeout(() => e.remove(), 3000);
+      }
 
-  applyTheme(getTheme());
+      function copyText(t) {
+        if (navigator.clipboard && window.isSecureContext)
+          return navigator.clipboard.writeText(t);
+        // Fallback for non-secure contexts (plain http): hidden textarea + execCommand.
+        const ta = document.createElement("textarea");
+        ta.value = t;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand("copy");
+        } catch (_) {}
+        ta.remove();
+        return Promise.resolve();
+      }
 
-  // ---- Admin auth: attach ADMIN_TOKEN as Bearer header on every API call ----
-  function getAdminToken() { return localStorage.getItem("dbmcp-admin-token") || ""; }
-  function saveAdminToken() { localStorage.setItem("dbmcp-admin-token", document.getElementById("admin-token").value.trim()); }
-  async function apifetch(url, opts) {
-    opts = opts || {};
-    const headers = Object.assign({}, opts.headers || {});
-    const t = getAdminToken();
-    if (t) headers["Authorization"] = "Bearer " + t;
-    opts.headers = headers;
-    const r = await fetch(url, opts);
-    if (r.status === 401) toast("Admin Token 缺失或无效：请在右上角输入后重试", false);
-    return r;
-  }
+      function switchTab(n) {
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b, i) =>
+            b.classList.toggle(
+              "active",
+              ["connections", "endpoints", "users", "acl"][i] === n,
+            ),
+          );
+        document
+          .querySelectorAll(".panel")
+          .forEach((p) => p.classList.remove("active"));
+        document.getElementById("panel-" + n).classList.add("active");
+      }
 
-  async function errText(r) {
-    try {
-      const e = await r.json();
-      return e.detail || ("HTTP " + r.status)
-    } catch (_) {
-      return "HTTP " + r.status
-    }
-  }
+      function openModal(id) {
+        const m = document.getElementById(id);
+        m.classList.add("open");
+        // Focus the first editable field for faster keyboard input.
+        const f = m.querySelector("input:not([type=hidden]), select, textarea");
+        if (f) setTimeout(() => f.focus(), 60);
+      }
 
-  function toast(m, ok = true) {
-    const e = document.createElement("div");
-    e.className = "toast " + (ok ? "toast-ok" : "toast-err");
-    e.textContent = m;
-    document.getElementById("toast-area").appendChild(e);
-    setTimeout(() => e.remove(), 3000)
-  }
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("open");
+      }
 
-  function copyText(t) {
-    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
-    // Fallback for non-secure contexts (plain http): hidden textarea + execCommand.
-    const ta = document.createElement("textarea");
-    ta.value = t;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); } catch (_) {}
-    ta.remove();
-    return Promise.resolve()
-  }
+      // Esc closes any open modal; clicking the dimmed overlay also closes it.
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape")
+          document
+            .querySelectorAll(".overlay.open")
+            .forEach((o) => o.classList.remove("open"));
+      });
+      document.querySelectorAll(".overlay").forEach((o) =>
+        o.addEventListener("mousedown", (e) => {
+          if (e.target === o) o.classList.remove("open");
+        }),
+      );
 
-  function switchTab(n) {
-    document.querySelectorAll(".tab-btn").forEach((b, i) => b.classList.toggle("active", ["connections", "endpoints", "users", "acl"][i] === n));
-    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-    document.getElementById("panel-" + n).classList.add("active")
-  }
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s || "";
+        return d.innerHTML;
+      }
 
-  function openModal(id) {
-    const m = document.getElementById(id);
-    m.classList.add("open");
-    // Focus the first editable field for faster keyboard input.
-    const f = m.querySelector("input:not([type=hidden]), select, textarea");
-    if (f) setTimeout(() => f.focus(), 60)
-  }
+      function updateStats() {
+        document.getElementById("stats").textContent =
+          allConns.length +
+          " 个连接 | " +
+          allEps.length +
+          " 个端点 | " +
+          allUsers.length +
+          " 个用户 | " +
+          allAcl.length +
+          " 条 ACL";
+      }
 
-  function closeModal(id) {
-    document.getElementById(id).classList.remove("open")
-  }
+      // ============= Connections =============
+      async function fetchConns() {
+        allConns = await (await apifetch(API + "/connections")).json();
+        renderConns();
+      }
 
-  // Esc closes any open modal; clicking the dimmed overlay also closes it.
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(o => o.classList.remove("open"))
-  });
-  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("mousedown", e => {
-    if (e.target === o) o.classList.remove("open")
-  }));
+      function getFilteredConns() {
+        const t = document.getElementById("conn-type-filter").value,
+          q = document.getElementById("conn-search").value.toLowerCase().trim();
+        return allConns
+          .filter(
+            (c) =>
+              (!t || c.db_type === t) &&
+              (!q ||
+                (c.alias + "" + c.host + "" + c.db_name)
+                  .toLowerCase()
+                  .includes(q)),
+          )
+          .sort((a, b) => {
+            const va = a[connSortKey] || "",
+              vb = b[connSortKey] || "";
+            return va < vb ? -connSortDir : va > vb ? connSortDir : 0;
+          });
+      }
 
-  function esc(s) {
-    const d = document.createElement("div");
-    d.textContent = s || "";
-    return d.innerHTML
-  }
+      function renderSortArrow() {
+        const el = document.getElementById("conn-sort-arrow");
+        if (el) el.textContent = connSortDir === 1 ? "▲" : "▼";
+      }
 
-  function updateStats() {
-    document.getElementById("stats").textContent = allConns.length + " 个连接 | " + allEps.length + " 个端点 | " + allUsers.length + " 个用户 | " + allAcl.length + " 条 ACL"
-  }
+      function renderConns() {
+        const f = getFilteredConns(),
+          tp = Math.max(1, Math.ceil(f.length / PAGE));
+        if (connPage > tp) connPage = tp;
+        const s = (connPage - 1) * PAGE,
+          p = f.slice(s, s + PAGE),
+          tb = document.getElementById("conn-tbody"),
+          em = document.getElementById("conn-empty");
+        renderSortArrow();
+        if (!f.length) {
+          tb.innerHTML = "";
+          em.style.display = "";
+          document.getElementById("conn-pagination").innerHTML = "";
+          updateStats();
+          return;
+        }
+        em.style.display = "none";
+        tb.innerHTML = p
+          .map((c) => {
+            const epCount = allEps.filter(
+              (e) => e.connection_id === c.id,
+            ).length;
+            return (
+              "<tr><td><strong>" +
+              esc(c.alias) +
+              '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' +
+              c.id +
+              '</span></td><td><span class="tag tag-' +
+              c.db_type +
+              '">' +
+              c.db_type +
+              '</span></td><td class="mono">' +
+              esc(c.host) +
+              '</td><td class="mono">' +
+              esc(c.port) +
+              '</td><td class="mono">' +
+              esc(c.user) +
+              '</td><td class="mono">' +
+              esc(c.db_name) +
+              "</td><td>" +
+              epCount +
+              '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editConn(' +
+              JSON.stringify(c).replace(/'/g, "&#39;") +
+              '\')">编辑</button><button class="btn btn-danger btn-sm" title="删除连接" onclick="deleteConn(\'' +
+              c.id +
+              "')\">删除</button></td></tr>"
+            );
+          })
+          .join("");
+        const pg = document.getElementById("conn-pagination");
+        if (tp <= 1) {
+          pg.innerHTML = "";
+        } else {
+          pg.innerHTML =
+            '<button class="btn btn-ghost btn-sm" onclick="connPage=1;renderConns()" ' +
+            (connPage === 1 ? "disabled" : "") +
+            '>首页</button><button class="btn btn-ghost btn-sm" onclick="connPage--;renderConns()" ' +
+            (connPage === 1 ? "disabled" : "") +
+            '>上一页</button><span class="page-info">' +
+            connPage +
+            "/" +
+            tp +
+            '</span><button class="btn btn-ghost btn-sm" onclick="connPage++;renderConns()" ' +
+            (connPage === tp ? "disabled" : "") +
+            '>下一页</button><button class="btn btn-ghost btn-sm" onclick="connPage=' +
+            tp +
+            ';renderConns()" ' +
+            (connPage === tp ? "disabled" : "") +
+            ">末页</button>";
+        }
+        updateStats();
+      }
 
-  // ============= Connections =============
-  async function fetchConns() {
-    allConns = await (await apifetch(API + "/connections")).json();
-    renderConns()
-  }
+      function sortConns(k) {
+        if (connSortKey === k) connSortDir *= -1;
+        else {
+          connSortKey = k;
+          connSortDir = 1;
+        }
+        renderConns();
+      }
 
-  function getFilteredConns() {
-    const t = document.getElementById("conn-type-filter").value, q = document.getElementById("conn-search").value.toLowerCase().trim();
-    return allConns.filter(c => (!t || c.db_type === t) && (!q || (c.alias + "" + c.host + "" + c.db_name).toLowerCase().includes(q))).sort((a, b) => {
-      const va = a[connSortKey] || "", vb = b[connSortKey] || "";
-      return va < vb ? -connSortDir : va > vb ? connSortDir : 0
-    })
-  }
+      function autoPort() {
+        document.getElementById("conn-port").value =
+          document.getElementById("conn-type").value === "mysql"
+            ? "3306"
+            : "5432";
+      }
 
-  function renderSortArrow() {
-    const el = document.getElementById("conn-sort-arrow");
-    if (el) el.textContent = connSortDir === 1 ? "▲" : "▼"
-  }
+      function openConnModal() {
+        document.getElementById("conn-modal-title").textContent = "新建连接";
+        document.getElementById("conn-edit-id").value = "";
+        [
+          "conn-alias",
+          "conn-host",
+          "conn-user",
+          "conn-pass",
+          "conn-db",
+        ].forEach((i) => (document.getElementById(i).value = ""));
+        document.getElementById("conn-pass").placeholder = "";
+        document.getElementById("conn-type").value = "mysql";
+        document.getElementById("conn-port").value = "3306";
+        openModal("conn-modal");
+      }
 
-  function renderConns() {
-    const f = getFilteredConns(), tp = Math.max(1, Math.ceil(f.length / PAGE));
-    if (connPage > tp) connPage = tp;
-    const s = (connPage - 1) * PAGE, p = f.slice(s, s + PAGE), tb = document.getElementById("conn-tbody"),
-        em = document.getElementById("conn-empty");
-    renderSortArrow();
-    if (!f.length) {
-      tb.innerHTML = "";
-      em.style.display = "";
-      document.getElementById("conn-pagination").innerHTML = "";
-      updateStats();
-      return
-    }
-    em.style.display = "none";
-    tb.innerHTML = p.map(c => {
-      const epCount = allEps.filter(e => e.connection_id === c.id).length;
-      return '<tr><td><strong>' + esc(c.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + c.id + '</span></td><td><span class="tag tag-' + c.db_type + '">' + c.db_type + '</span></td><td class="mono">' + esc(c.host) + '</td><td class="mono">' + esc(c.port) + '</td><td class="mono">' + esc(c.user) + '</td><td class="mono">' + esc(c.db_name) + '</td><td>' + epCount + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editConn(' + JSON.stringify(c).replace(/'/g, "&#39;") + "')\">编辑</button><button class=\"btn btn-danger btn-sm\" title=\"删除连接\" onclick=\"deleteConn('" + c.id + "')\">删除</button></td></tr>"
-    }).join("");
-    const pg = document.getElementById("conn-pagination");
-    if (tp <= 1) {
-      pg.innerHTML = ""
-    } else {
-      pg.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="connPage=1;renderConns()" ' + (connPage === 1 ? "disabled" : "") + ">首页</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage--;renderConns()\" " + (connPage === 1 ? "disabled" : "") + ">上一页</button><span class=\"page-info\">" + connPage + "/" + tp + '</span><button class="btn btn-ghost btn-sm" onclick="connPage++;renderConns()" ' + (connPage === tp ? "disabled" : "") + ">下一页</button><button class=\"btn btn-ghost btn-sm\" onclick=\"connPage=" + tp + ';renderConns()" ' + (connPage === tp ? "disabled" : "") + ">末页</button>"
-    }
-    updateStats()
-  }
+      function editConn(c) {
+        document.getElementById("conn-modal-title").textContent = "编辑连接";
+        document.getElementById("conn-edit-id").value = c.id;
+        document.getElementById("conn-alias").value = c.alias;
+        document.getElementById("conn-type").value = c.db_type;
+        document.getElementById("conn-host").value = c.host;
+        document.getElementById("conn-port").value = c.port;
+        document.getElementById("conn-user").value = c.user;
+        // Password is write-only (API returns "***"): leave blank = keep unchanged.
+        document.getElementById("conn-pass").value = "";
+        document.getElementById("conn-pass").placeholder = "留空 = 不修改";
+        document.getElementById("conn-db").value = c.db_name;
+        openModal("conn-modal");
+      }
 
-  function sortConns(k) {
-    if (connSortKey === k) connSortDir *= -1; else {
-      connSortKey = k;
-      connSortDir = 1
-    }
-    renderConns()
-  }
+      async function saveConn() {
+        const eid = document.getElementById("conn-edit-id").value;
+        const b = {
+          alias: document.getElementById("conn-alias").value.trim(),
+          db_type: document.getElementById("conn-type").value,
+          host: document.getElementById("conn-host").value.trim(),
+          port: document.getElementById("conn-port").value.trim(),
+          user: document.getElementById("conn-user").value.trim(),
+          db_name: document.getElementById("conn-db").value.trim(),
+        };
+        // Only send password when the user typed one (edit: blank = unchanged).
+        const pw = document.getElementById("conn-pass").value;
+        if (pw) b.password = pw;
+        const r = eid
+          ? await apifetch(API + "/connections/" + eid, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(b),
+            })
+          : await apifetch(API + "/connections", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(b),
+            });
+        if (!r.ok) {
+          toast("保存失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("conn-modal");
+        toast(eid ? "已更新" : "已创建");
+        fetchConns();
+      }
 
-  function autoPort() {
-    document.getElementById("conn-port").value = document.getElementById("conn-type").value === "mysql" ? "3306" : "5432"
-  }
+      async function deleteConn(id) {
+        if (!confirm("删除该连接及其所有端点和 ACL 规则？")) return;
+        const r = await apifetch(API + "/connections/" + id, {
+          method: "DELETE",
+        });
+        if (!r.ok) {
+          toast("删除失败：" + (await errText(r)), false);
+          return;
+        }
+        toast("已删除");
+        fetchConns();
+        fetchEps();
+        fetchAcl();
+      }
 
-  function openConnModal() {
-    document.getElementById("conn-modal-title").textContent = "新建连接";
-    document.getElementById("conn-edit-id").value = "";
-    ["conn-alias", "conn-host", "conn-user", "conn-pass", "conn-db"].forEach(i => document.getElementById(i).value = "");
-    document.getElementById("conn-pass").placeholder = "";
-    document.getElementById("conn-type").value = "mysql";
-    document.getElementById("conn-port").value = "3306";
-    openModal("conn-modal")
-  }
+      function openConnImportModal() {
+        document.getElementById("conn-import-json").value = "";
+        openModal("conn-import-modal");
+      }
 
-  function editConn(c) {
-    document.getElementById("conn-modal-title").textContent = "编辑连接";
-    document.getElementById("conn-edit-id").value = c.id;
-    document.getElementById("conn-alias").value = c.alias;
-    document.getElementById("conn-type").value = c.db_type;
-    document.getElementById("conn-host").value = c.host;
-    document.getElementById("conn-port").value = c.port;
-    document.getElementById("conn-user").value = c.user;
-    // Password is write-only (API returns "***"): leave blank = keep unchanged.
-    document.getElementById("conn-pass").value = "";
-    document.getElementById("conn-pass").placeholder = "留空 = 不修改";
-    document.getElementById("conn-db").value = c.db_name;
-    openModal("conn-modal")
-  }
+      async function doConnImport() {
+        let items;
+        try {
+          items = JSON.parse(document.getElementById("conn-import-json").value);
+        } catch (e) {
+          toast("JSON 格式无效", false);
+          return;
+        }
+        if (!Array.isArray(items)) {
+          toast("必须是 JSON 数组", false);
+          return;
+        }
+        items = items.map((i) => ({
+          ...i,
+          port: i.port || (i.db_type === "mysql" ? "3306" : "5432"),
+          host: i.host || "localhost",
+        }));
+        const r = await apifetch(API + "/connections/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(items),
+        });
+        if (!r.ok) {
+          toast("导入失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("conn-import-modal");
+        toast("已导入 " + (await r.json()).length + " 个连接");
+        fetchConns();
+      }
 
-  async function saveConn() {
-    const eid = document.getElementById("conn-edit-id").value;
-    const b = {
-      alias: document.getElementById("conn-alias").value.trim(),
-      db_type: document.getElementById("conn-type").value,
-      host: document.getElementById("conn-host").value.trim(),
-      port: document.getElementById("conn-port").value.trim(),
-      user: document.getElementById("conn-user").value.trim(),
-      db_name: document.getElementById("conn-db").value.trim()
-    };
-    // Only send password when the user typed one (edit: blank = unchanged).
-    const pw = document.getElementById("conn-pass").value;
-    if (pw) b.password = pw;
-    const r = eid ? await apifetch(API + "/connections/" + eid, {
-      method: "PATCH",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(b)
-    }) : await apifetch(API + "/connections", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
-    if (!r.ok) {
-      toast("保存失败：" + await errText(r), false);
-      return
-    }
-    closeModal("conn-modal");
-    toast(eid ? "已更新" : "已创建");
-    fetchConns()
-  }
+      // ============= Endpoints =============
+      async function fetchEps() {
+        allEps = await (await apifetch(API + "/endpoints")).json();
+        renderEps();
+        updateConnFilter();
+      }
 
-  async function deleteConn(id) {
-    if (!confirm("删除该连接及其所有端点和 ACL 规则？")) return;
-    const r = await apifetch(API + "/connections/" + id, {method: "DELETE"});
-    if (!r.ok) {
-      toast("删除失败：" + await errText(r), false);
-      return
-    }
-    toast("已删除");
-    fetchConns();
-    fetchEps();
-    fetchAcl()
-  }
+      function updateConnFilter() {
+        const sel = document.getElementById("ep-conn-filter");
+        const v = sel.value;
+        sel.innerHTML =
+          '<option value="">全部连接</option>' +
+          allConns
+            .map(
+              (c) =>
+                '<option value="' +
+                c.id +
+                '">' +
+                esc(c.alias) +
+                " (" +
+                c.db_type +
+                ")</option>",
+            )
+            .join("");
+        sel.value = v;
+      }
 
-  function openConnImportModal() {
-    document.getElementById("conn-import-json").value = "";
-    openModal("conn-import-modal")
-  }
+      function renderEps() {
+        const cf = document.getElementById("ep-conn-filter").value,
+          q = document.getElementById("ep-search").value.toLowerCase().trim();
+        const filtered = allEps.filter(
+          (e) =>
+            (!cf || e.connection_id === cf) &&
+            (!q || (e.alias + "" + e.description).toLowerCase().includes(q)),
+        );
+        const tb = document.getElementById("ep-tbody"),
+          em = document.getElementById("ep-empty");
+        if (!filtered.length) {
+          tb.innerHTML = "";
+          em.style.display = "";
+          updateStats();
+          return;
+        }
+        em.style.display = "none";
+        const connMap = Object.fromEntries(allConns.map((c) => [c.id, c]));
+        tb.innerHTML = filtered
+          .map((e) => {
+            const c = connMap[e.connection_id];
+            const scope = e.allowed_tables.length
+              ? e.allowed_tables
+                  .map((t) => '<span class="scope-badge">' + esc(t) + "</span>")
+                  .join("")
+              : '<span class="scope-badge full">全部表</span>';
+            const dbt = c ? c.db_type : "?";
+            const base = "/" + dbt + "/" + e.alias;
+            const paths =
+              '<span class="mcp-path-label">SSE</span><span class="mcp-path">' +
+              base +
+              '/sse</span><br><span class="mcp-path-label">HTTP</span><span class="mcp-path">' +
+              base +
+              "/mcp</span>";
+            return (
+              "<tr><td><strong>" +
+              esc(e.alias) +
+              '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' +
+              e.id +
+              "</span></td><td>" +
+              (c ? esc(c.alias) : "?") +
+              "</td><td>" +
+              (c
+                ? '<span class="tag tag-' +
+                  c.db_type +
+                  '">' +
+                  c.db_type +
+                  "</span>"
+                : "") +
+              '</td><td style="max-width:240px">' +
+              scope +
+              "</td><td>" +
+              paths +
+              '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editEp(' +
+              JSON.stringify(e).replace(/'/g, "&#39;") +
+              '\')">编辑</button><button class="btn btn-danger btn-sm" title="删除端点" onclick="deleteEp(\'' +
+              e.id +
+              "')\">删除</button></td></tr>"
+            );
+          })
+          .join("");
+        updateStats();
+      }
 
-  async function doConnImport() {
-    let items;
-    try {
-      items = JSON.parse(document.getElementById("conn-import-json").value)
-    } catch (e) {
-      toast("JSON 格式无效", false);
-      return
-    }
-    if (!Array.isArray(items)) {
-      toast("必须是 JSON 数组", false);
-      return
-    }
-    items = items.map(i => ({...i, port: i.port || (i.db_type === "mysql" ? "3306" : "5432"), host: i.host || "localhost"}));
-    const r = await apifetch(API + "/connections/batch", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(items)
-    });
-    if (!r.ok) {
-      toast("导入失败：" + await errText(r), false);
-      return
-    }
-    closeModal("conn-import-modal");
-    toast("已导入 " + (await r.json()).length + " 个连接");
-    fetchConns()
-  }
+      function openEpModal() {
+        document.getElementById("ep-modal-title").textContent = "新建端点";
+        document.getElementById("ep-edit-id").value = "";
+        document.getElementById("ep-alias").value = "";
+        document.getElementById("ep-desc").value = "";
+        document.getElementById("ep-tables").value = "";
+        document.getElementById("ep-conn").innerHTML = allConns
+          .map(
+            (c) =>
+              '<option value="' +
+              c.id +
+              '">' +
+              esc(c.alias) +
+              " (" +
+              c.db_type +
+              " - " +
+              c.host +
+              "/" +
+              c.db_name +
+              ")</option>",
+          )
+          .join("");
+        openModal("ep-modal");
+      }
 
-  // ============= Endpoints =============
-  async function fetchEps() {
-    allEps = await (await apifetch(API + "/endpoints")).json();
-    renderEps();
-    updateConnFilter()
-  }
+      function editEp(e) {
+        document.getElementById("ep-modal-title").textContent = "编辑端点";
+        document.getElementById("ep-edit-id").value = e.id;
+        document.getElementById("ep-alias").value = e.alias;
+        document.getElementById("ep-desc").value = e.description || "";
+        document.getElementById("ep-tables").value =
+          e.allowed_tables.join("\n");
+        document.getElementById("ep-conn").innerHTML = allConns
+          .map(
+            (c) =>
+              '<option value="' +
+              c.id +
+              '"' +
+              (c.id === e.connection_id ? " selected" : "") +
+              ">" +
+              esc(c.alias) +
+              " (" +
+              c.db_type +
+              ")</option>",
+          )
+          .join("");
+        openModal("ep-modal");
+      }
 
-  function updateConnFilter() {
-    const sel = document.getElementById("ep-conn-filter");
-    const v = sel.value;
-    sel.innerHTML = '<option value="">全部连接</option>' + allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + ' (' + c.db_type + ')</option>').join("");
-    sel.value = v
-  }
+      async function saveEp() {
+        const eid = document.getElementById("ep-edit-id").value;
+        const tables = document
+          .getElementById("ep-tables")
+          .value.split("\n")
+          .map((t) => t.trim())
+          .filter(Boolean);
+        const b = {
+          alias: document.getElementById("ep-alias").value.trim(),
+          connection_id: document.getElementById("ep-conn").value,
+          description: document.getElementById("ep-desc").value.trim(),
+          allowed_tables: tables,
+        };
+        const r = eid
+          ? await apifetch(API + "/endpoints/" + eid, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(b),
+            })
+          : await apifetch(API + "/endpoints", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(b),
+            });
+        if (!r.ok) {
+          toast("保存失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("ep-modal");
+        toast(eid ? "已更新" : "已创建");
+        fetchEps();
+      }
 
-  function renderEps() {
-    const cf = document.getElementById("ep-conn-filter").value, q = document.getElementById("ep-search").value.toLowerCase().trim();
-    const filtered = allEps.filter(e => (!cf || e.connection_id === cf) && (!q || (e.alias + "" + e.description).toLowerCase().includes(q)));
-    const tb = document.getElementById("ep-tbody"), em = document.getElementById("ep-empty");
-    if (!filtered.length) {
-      tb.innerHTML = "";
-      em.style.display = "";
-      updateStats();
-      return
-    }
-    em.style.display = "none";
-    const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
-    tb.innerHTML = filtered.map(e => {
-      const c = connMap[e.connection_id];
-      const scope = e.allowed_tables.length ? e.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join("") : '<span class="scope-badge full">全部表</span>';
-      const dbt = c ? c.db_type : "?";
-      const base = "/" + dbt + "/" + e.alias;
-      const paths = '<span class="mcp-path-label">SSE</span><span class="mcp-path">' + base + '/sse</span><br><span class="mcp-path-label">HTTP</span><span class="mcp-path">' + base + '/mcp</span>';
-      return '<tr><td><strong>' + esc(e.alias) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + e.id + '</span></td><td>' + (c ? esc(c.alias) : "?") + '</td><td>' + (c ? '<span class="tag tag-' + c.db_type + '">' + c.db_type + '</span>' : "") + '</td><td style="max-width:240px">' + scope + '</td><td>' + paths + '</td><td class="actions-cell"><button class="btn btn-ghost btn-sm" onclick=\'editEp(' + JSON.stringify(e).replace(/'/g, "&#39;") + "')\">编辑</button><button class=\"btn btn-danger btn-sm\" title=\"删除端点\" onclick=\"deleteEp('" + e.id + "')\">删除</button></td></tr>"
-    }).join("");
-    updateStats()
-  }
+      async function deleteEp(id) {
+        if (!confirm("删除该端点及其相关 ACL 规则？")) return;
+        const r = await apifetch(API + "/endpoints/" + id, {
+          method: "DELETE",
+        });
+        if (!r.ok) {
+          toast("删除失败：" + (await errText(r)), false);
+          return;
+        }
+        toast("已删除");
+        fetchEps();
+        fetchAcl();
+      }
 
-  function openEpModal() {
-    document.getElementById("ep-modal-title").textContent = "新建端点";
-    document.getElementById("ep-edit-id").value = "";
-    document.getElementById("ep-alias").value = "";
-    document.getElementById("ep-desc").value = "";
-    document.getElementById("ep-tables").value = "";
-    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '">' + esc(c.alias) + " (" + c.db_type + " - " + c.host + "/" + c.db_name + ")</option>").join("");
-    openModal("ep-modal")
-  }
+      // ============= Users =============
+      async function fetchUsers() {
+        allUsers = await (await apifetch(API + "/users")).json();
+        renderUsers();
+      }
 
-  function editEp(e) {
-    document.getElementById("ep-modal-title").textContent = "编辑端点";
-    document.getElementById("ep-edit-id").value = e.id;
-    document.getElementById("ep-alias").value = e.alias;
-    document.getElementById("ep-desc").value = e.description || "";
-    document.getElementById("ep-tables").value = e.allowed_tables.join("\n");
-    document.getElementById("ep-conn").innerHTML = allConns.map(c => '<option value="' + c.id + '"' + (c.id === e.connection_id ? " selected" : "") + '>' + esc(c.alias) + " (" + c.db_type + ")</option>").join("");
-    openModal("ep-modal")
-  }
+      function renderUsers() {
+        const tb = document.getElementById("user-tbody"),
+          em = document.getElementById("user-empty");
+        if (!allUsers.length) {
+          tb.innerHTML = "";
+          em.style.display = "";
+          updateStats();
+          return;
+        }
+        em.style.display = "none";
+        tb.innerHTML = allUsers
+          .map(
+            (u) =>
+              "<tr><td><strong>" +
+              esc(u.username) +
+              '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' +
+              u.id +
+              '</span></td><td><div class="token-display"><code title="点击复制" onclick="copyToken(\'' +
+              u.token +
+              "')\">" +
+              esc(u.token) +
+              '</code><button class="btn btn-ghost btn-sm" title="重新生成令牌" onclick="regenToken(\'' +
+              u.id +
+              "')\">重置</button></div></td><td>" +
+              (u.is_admin
+                ? '<span class="tag tag-admin">管理员</span>'
+                : "用户") +
+              '</td><td class="actions-cell"><button class="btn btn-danger btn-sm" title="删除用户" onclick="deleteUser(\'' +
+              u.id +
+              "')\">删除</button></td></tr>",
+          )
+          .join("");
+        updateStats();
+      }
 
-  async function saveEp() {
-    const eid = document.getElementById("ep-edit-id").value;
-    const tables = document.getElementById("ep-tables").value.split("\n").map(t => t.trim()).filter(Boolean);
-    const b = {
-      alias: document.getElementById("ep-alias").value.trim(),
-      connection_id: document.getElementById("ep-conn").value,
-      description: document.getElementById("ep-desc").value.trim(),
-      allowed_tables: tables
-    };
-    const r = eid ? await apifetch(API + "/endpoints/" + eid, {
-      method: "PATCH",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(b)
-    }) : await apifetch(API + "/endpoints", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
-    if (!r.ok) {
-      toast("保存失败：" + await errText(r), false);
-      return
-    }
-    closeModal("ep-modal");
-    toast(eid ? "已更新" : "已创建");
-    fetchEps()
-  }
+      function openUserModal() {
+        document.getElementById("user-username").value = "";
+        document.getElementById("user-admin").checked = false;
+        openModal("user-modal");
+      }
 
-  async function deleteEp(id) {
-    if (!confirm("删除该端点及其相关 ACL 规则？")) return;
-    const r = await apifetch(API + "/endpoints/" + id, {method: "DELETE"});
-    if (!r.ok) {
-      toast("删除失败：" + await errText(r), false);
-      return
-    }
-    toast("已删除");
-    fetchEps();
-    fetchAcl()
-  }
+      async function saveUser() {
+        const b = {
+          username: document.getElementById("user-username").value.trim(),
+          is_admin: document.getElementById("user-admin").checked,
+        };
+        const r = await apifetch(API + "/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(b),
+        });
+        if (!r.ok) {
+          toast("保存失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("user-modal");
+        toast("已创建");
+        fetchUsers();
+      }
 
-  // ============= Users =============
-  async function fetchUsers() {
-    allUsers = await (await apifetch(API + "/users")).json();
-    renderUsers()
-  }
+      async function deleteUser(id) {
+        if (!confirm("删除该用户？其 ACL 规则将一并移除。")) return;
+        const r = await apifetch(API + "/users/" + id, { method: "DELETE" });
+        if (!r.ok) {
+          toast("删除失败：" + (await errText(r)), false);
+          return;
+        }
+        toast("已删除");
+        fetchUsers();
+        fetchAcl();
+      }
 
-  function renderUsers() {
-    const tb = document.getElementById("user-tbody"), em = document.getElementById("user-empty");
-    if (!allUsers.length) {
-      tb.innerHTML = "";
-      em.style.display = "";
-      updateStats();
-      return
-    }
-    em.style.display = "none";
-    tb.innerHTML = allUsers.map(u => '<tr><td><strong>' + esc(u.username) + '</strong><br><span class="mono" style="color:var(--text2);font-size:11px">' + u.id + '</span></td><td><div class="token-display"><code title="点击复制" onclick="copyToken(\'' + u.token + "')\">" + esc(u.token) + '</code><button class="btn btn-ghost btn-sm" title="重新生成令牌" onclick="regenToken(\'' + u.id + "')\">重置</button></div></td><td>" + (u.is_admin ? '<span class="tag tag-admin">管理员</span>' : "用户") + "</td><td class=\"actions-cell\"><button class=\"btn btn-danger btn-sm\" title=\"删除用户\" onclick=\"deleteUser('" + u.id + "')\">删除</button></td></tr>").join("");
-    updateStats()
-  }
+      function copyToken(t) {
+        copyText(t).then(() => toast("令牌已复制"));
+      }
 
-  function openUserModal() {
-    document.getElementById("user-username").value = "";
-    document.getElementById("user-admin").checked = false;
-    openModal("user-modal")
-  }
+      async function regenToken(id) {
+        if (!confirm("重新生成令牌？旧令牌将立即失效。")) return;
+        const r = await apifetch(API + "/users/" + id + "/regen-token", {
+          method: "POST",
+        });
+        if (!r.ok) {
+          toast("操作失败：" + (await errText(r)), false);
+          return;
+        }
+        const u = await r.json();
+        await copyText(u.token);
+        toast("新令牌已复制到剪贴板");
+        fetchUsers();
+      }
 
-  async function saveUser() {
-    const b = {username: document.getElementById("user-username").value.trim(), is_admin: document.getElementById("user-admin").checked};
-    const r = await apifetch(API + "/users", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(b)});
-    if (!r.ok) {
-      toast("保存失败：" + await errText(r), false);
-      return
-    }
-    closeModal("user-modal");
-    toast("已创建");
-    fetchUsers()
-  }
+      // ============= ACL =============
+      async function fetchAcl() {
+        allAcl = await (await apifetch(API + "/acl")).json();
+        renderAcl();
+      }
 
-  async function deleteUser(id) {
-    if (!confirm("删除该用户？其 ACL 规则将一并移除。")) return;
-    const r = await apifetch(API + "/users/" + id, {method: "DELETE"});
-    if (!r.ok) {
-      toast("删除失败：" + await errText(r), false);
-      return
-    }
-    toast("已删除");
-    fetchUsers();
-    fetchAcl()
-  }
+      function renderAcl() {
+        const userMap = Object.fromEntries(
+          allUsers.map((u) => [u.id, u.username]),
+        );
+        const epMap = Object.fromEntries(allEps.map((e) => [e.id, e]));
+        const connMap = Object.fromEntries(allConns.map((c) => [c.id, c]));
+        const tb = document.getElementById("acl-tbody"),
+          em = document.getElementById("acl-empty");
+        if (!allAcl.length) {
+          tb.innerHTML = "";
+          em.style.display = "";
+          updateStats();
+          return;
+        }
+        em.style.display = "none";
+        tb.innerHTML = allAcl
+          .map((a) => {
+            const ep = epMap[a.endpoint_id];
+            const c = ep ? connMap[ep.connection_id] : null;
+            const scope =
+              ep && ep.allowed_tables.length
+                ? ep.allowed_tables
+                    .map(
+                      (t) => '<span class="scope-badge">' + esc(t) + "</span>",
+                    )
+                    .join("")
+                : '<span class="scope-badge full">全部</span>';
+            return (
+              "<tr><td>" +
+              esc(userMap[a.user_id] || a.user_id) +
+              "</td><td>" +
+              (ep ? esc(ep.alias) : a.endpoint_id) +
+              "</td><td>" +
+              (c ? esc(c.alias) : "") +
+              "</td><td>" +
+              scope +
+              '</td><td class="actions-cell"><button class="btn btn-danger btn-sm" title="移除规则" onclick="deleteAclEntry(\'' +
+              a.id +
+              "')\">删除</button></td></tr>"
+            );
+          })
+          .join("");
+        updateStats();
+      }
 
-  function copyToken(t) {
-    copyText(t).then(() => toast("令牌已复制"))
-  }
+      async function openAclModal() {
+        document.getElementById("acl-user").innerHTML = allUsers
+          .map(
+            (u) =>
+              '<option value="' + u.id + '">' + esc(u.username) + "</option>",
+          )
+          .join("");
+        document.getElementById("acl-ep").innerHTML = allEps
+          .map((e) => {
+            const c = allConns.find((c) => c.id === e.connection_id);
+            return (
+              '<option value="' +
+              e.id +
+              '">' +
+              esc(e.alias) +
+              (c ? " (" + c.db_type + ")" : "") +
+              "</option>"
+            );
+          })
+          .join("");
+        openModal("acl-modal");
+      }
 
-  async function regenToken(id) {
-    if (!confirm("重新生成令牌？旧令牌将立即失效。")) return;
-    const r = await apifetch(API + "/users/" + id + "/regen-token", {method: "POST"});
-    if (!r.ok) {
-      toast("操作失败：" + await errText(r), false);
-      return
-    }
-    const u = await r.json();
-    await copyText(u.token);
-    toast("新令牌已复制到剪贴板");
-    fetchUsers()
-  }
+      async function saveAcl() {
+        const uid = document.getElementById("acl-user").value,
+          eid = document.getElementById("acl-ep").value;
+        if (!uid || !eid) {
+          toast("请选择用户和端点", false);
+          return;
+        }
+        const r = await apifetch(
+          API + "/acl?user_id=" + uid + "&endpoint_id=" + eid,
+          { method: "POST" },
+        );
+        if (!r.ok) {
+          toast("保存失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("acl-modal");
+        toast("已添加");
+        fetchAcl();
+      }
 
-  // ============= ACL =============
-  async function fetchAcl() {
-    allAcl = await (await apifetch(API + "/acl")).json();
-    renderAcl()
-  }
+      async function deleteAclEntry(id) {
+        if (!confirm("移除这条 ACL 规则？")) return;
+        const r = await apifetch(API + "/acl/" + id, { method: "DELETE" });
+        if (!r.ok) {
+          toast("删除失败：" + (await errText(r)), false);
+          return;
+        }
+        toast("已移除");
+        fetchAcl();
+      }
 
-  function renderAcl() {
-    const userMap = Object.fromEntries(allUsers.map(u => [u.id, u.username]));
-    const epMap = Object.fromEntries(allEps.map(e => [e.id, e]));
-    const connMap = Object.fromEntries(allConns.map(c => [c.id, c]));
-    const tb = document.getElementById("acl-tbody"), em = document.getElementById("acl-empty");
-    if (!allAcl.length) {
-      tb.innerHTML = "";
-      em.style.display = "";
-      updateStats();
-      return
-    }
-    em.style.display = "none";
-    tb.innerHTML = allAcl.map(a => {
-      const ep = epMap[a.endpoint_id];
-      const c = ep ? connMap[ep.connection_id] : null;
-      const scope = ep && ep.allowed_tables.length ? ep.allowed_tables.map(t => '<span class="scope-badge">' + esc(t) + "</span>").join("") : '<span class="scope-badge full">全部</span>';
-      return '<tr><td>' + esc(userMap[a.user_id] || a.user_id) + '</td><td>' + (ep ? esc(ep.alias) : a.endpoint_id) + '</td><td>' + (c ? esc(c.alias) : "") + '</td><td>' + scope + '</td><td class="actions-cell"><button class="btn btn-danger btn-sm" title="移除规则" onclick="deleteAclEntry(\'' + a.id + "')\">删除</button></td></tr>"
-    }).join("");
-    updateStats()
-  }
+      function openAclBatchModal() {
+        document.getElementById("acl-batch-user").innerHTML = allUsers
+          .map(
+            (u) =>
+              '<option value="' + u.id + '">' + esc(u.username) + "</option>",
+          )
+          .join("");
+        document.getElementById("acl-batch-eps").innerHTML = allEps
+          .map((e) => {
+            const c = allConns.find((c) => c.id === e.connection_id);
+            return (
+              '<option value="' +
+              e.id +
+              '">' +
+              esc(e.alias) +
+              (c ? " (" + c.db_type + ")" : "") +
+              "</option>"
+            );
+          })
+          .join("");
+        openModal("acl-batch-modal");
+      }
 
-  async function openAclModal() {
-    document.getElementById("acl-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
-    document.getElementById("acl-ep").innerHTML = allEps.map(e => {
-      const c = allConns.find(c => c.id === e.connection_id);
-      return '<option value="' + e.id + '">' + esc(e.alias) + (c ? " (" + c.db_type + ")" : "") + "</option>"
-    }).join("");
-    openModal("acl-modal")
-  }
+      async function saveAclBatch() {
+        const uid = document.getElementById("acl-batch-user").value;
+        const eids = Array.from(
+          document.getElementById("acl-batch-eps").selectedOptions,
+        ).map((o) => o.value);
+        if (!uid || !eids.length) {
+          toast("请选择用户和端点", false);
+          return;
+        }
+        const items = eids.map((eid) => ({ user_id: uid, endpoint_id: eid }));
+        const r = await apifetch(API + "/acl/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(items),
+        });
+        if (!r.ok) {
+          toast("操作失败：" + (await errText(r)), false);
+          return;
+        }
+        closeModal("acl-batch-modal");
+        toast("已添加 " + (await r.json()).length + " 条规则");
+        fetchAcl();
+      }
 
-  async function saveAcl() {
-    const uid = document.getElementById("acl-user").value, eid = document.getElementById("acl-ep").value;
-    if (!uid || !eid) {
-      toast("请选择用户和端点", false);
-      return
-    }
-    const r = await apifetch(API + "/acl?user_id=" + uid + "&endpoint_id=" + eid, {method: "POST"});
-    if (!r.ok) {
-      toast("保存失败：" + await errText(r), false);
-      return
-    }
-    closeModal("acl-modal");
-    toast("已添加");
-    fetchAcl()
-  }
-
-  async function deleteAclEntry(id) {
-    if (!confirm("移除这条 ACL 规则？")) return;
-    const r = await apifetch(API + "/acl/" + id, {method: "DELETE"});
-    if (!r.ok) {
-      toast("删除失败：" + await errText(r), false);
-      return
-    }
-    toast("已移除");
-    fetchAcl()
-  }
-
-  function openAclBatchModal() {
-    document.getElementById("acl-batch-user").innerHTML = allUsers.map(u => '<option value="' + u.id + '">' + esc(u.username) + '</option>').join("");
-    document.getElementById("acl-batch-eps").innerHTML = allEps.map(e => {
-      const c = allConns.find(c => c.id === e.connection_id);
-      return '<option value="' + e.id + '">' + esc(e.alias) + (c ? " (" + c.db_type + ")" : "") + "</option>"
-    }).join("");
-    openModal("acl-batch-modal")
-  }
-
-  async function saveAclBatch() {
-    const uid = document.getElementById("acl-batch-user").value;
-    const eids = Array.from(document.getElementById("acl-batch-eps").selectedOptions).map(o => o.value);
-    if (!uid || !eids.length) {
-      toast("请选择用户和端点", false);
-      return
-    }
-    const items = eids.map(eid => ({user_id: uid, endpoint_id: eid}));
-    const r = await apifetch(API + "/acl/batch", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(items)});
-    if (!r.ok) {
-      toast("操作失败：" + await errText(r), false);
-      return
-    }
-    closeModal("acl-batch-modal");
-    toast("已添加 " + (await r.json()).length + " 条规则");
-    fetchAcl()
-  }
-
-  // Init
-  document.getElementById("admin-token").value = getAdminToken();
-  Promise.all([fetchConns(), fetchEps(), fetchUsers(), fetchAcl()]);
-</script>
-</body>
+      // Init
+      document.getElementById("admin-token").value = getAdminToken();
+      Promise.all([fetchConns(), fetchEps(), fetchUsers(), fetchAcl()]);
+    </script>
+  </body>
 </html>
