@@ -179,12 +179,21 @@ class Gateway:
 
 
 def _tool_payload(resp: dict):
-    """Unpack a tools/call response -> (is_error, parsed_json_or_text)."""
+    """Unpack a tools/call response -> (is_error, parsed result).
+
+    mcp 2.x puts the tool's structured return value in
+    ``result.structuredContent.result``. A ``List[str]`` return is
+    additionally expanded into one text block per item, so reading only
+    ``content[0].text`` loses data -- prefer structuredContent.
+    """
     result = resp["result"]
     if result.get("isError"):
         content = result.get("content", [{}])
         text = content[0].get("text", "") if content else ""
         return True, text
+    sc = result.get("structuredContent")
+    if isinstance(sc, dict) and "result" in sc:
+        return False, sc["result"]
     content = result.get("content", [{}])
     text = content[0].get("text", "") if content else ""
     try:

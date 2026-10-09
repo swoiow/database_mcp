@@ -74,7 +74,7 @@ def test_mysql_l1_no_token_403(gw):
 
 @need_pg
 def test_pgsql_select_returns_seeded_rows(gw):
-    ep, token, base = gw.setup("postgres", PG_CFG, ["orders"])
+    ep, token, base = gw.setup("pgsql", PG_CFG, ["orders"])
     sid = gw.session(base, token)
     is_err, payload = _tool_payload(gw.call_tool(
         base, token, sid, "execute_sql",
@@ -86,7 +86,7 @@ def test_pgsql_select_returns_seeded_rows(gw):
 
 @need_pg
 def test_pgsql_get_tables(gw):
-    ep, token, base = gw.setup("postgres", PG_CFG, [])
+    ep, token, base = gw.setup("pgsql", PG_CFG, [])
     sid = gw.session(base, token)
     is_err, payload = _tool_payload(gw.call_tool(
         base, token, sid, "get_tables", {"schema": "public"}))
@@ -97,7 +97,7 @@ def test_pgsql_get_tables(gw):
 
 @need_pg
 def test_pgsql_scope_deny(gw):
-    ep, token, base = gw.setup("postgres", PG_CFG, ["public.orders"])
+    ep, token, base = gw.setup("pgsql", PG_CFG, ["public.orders"])
     sid = gw.session(base, token)
     is_err, _ = _tool_payload(gw.call_tool(
         base, token, sid, "execute_sql", {"sql": "SELECT * FROM public.users"}))
