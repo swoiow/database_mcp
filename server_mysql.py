@@ -13,7 +13,7 @@ from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
 from core.cache import mk_cache_key, TTLCache
-from core.engines import get_engine
+from core.engines import connect_checked
 from drivers.mysql_driver import MySQLDriver
 from prompts.mysql_prompts import MYSQL_PROMPTS
 
@@ -75,18 +75,15 @@ class ExecuteSQLInput(ConnInput):
     max_rows: int = Field(default=2000, description="Row limit")
 
 
-async def _connect(input: ConnInput) -> Any:
-    # Reuse a cached engine per connection fingerprint instead of
-    # building (and leaking) a new engine on every tool call.
+def _connect(input: ConnInput) -> Any:
+    # Returns an async context manager (core.engines.connect_checked);
+    # call sites use `async with _connect(input) as conn:` (no await).
     conn_args = {
         "host": input.host, "user": input.user or "",
         "password": input.password or "", "db_name": input.db_name,
         "port": input.port,
     }
-    engine = await get_engine(driver, "mysql", conn_args)
-    conn = await engine.connect()
-    await driver.ensure_connection(conn)
-    return conn
+    return connect_checked(driver, "mysql", conn_args)
 
 
 # ---------- Tools ----------
@@ -104,7 +101,7 @@ async def get_all_schemas(input: ConnInput) -> Dict[str, Any]:
         hit = await cache.get(key)
         if hit is not None:
             return hit
-    async with await _connect(input) as conn:
+    async with _connect(input) as conn:
         out = await driver.get_all_schemas(conn)
     if input.use_cache:
         await cache.set(key, out, input.ttl)
@@ -118,7 +115,7 @@ async def get_tables(input: GetTablesInput) -> List[str]:
         hit = await cache.get(key)
         if hit is not None:
             return hit
-    async with await _connect(input) as conn:
+    async with _connect(input) as conn:
         out = await driver.get_tables(conn, input.database or input.db_name)
     if input.use_cache:
         await cache.set(key, out, input.ttl)
@@ -132,7 +129,7 @@ async def get_table_schema(input: GetTableSchemaInput) -> Dict[str, Any]:
         hit = await cache.get(key)
         if hit is not None:
             return hit
-    async with await _connect(input) as conn:
+    async with _connect(input) as conn:
         out = await driver.get_table_schema(conn, input.database or input.db_name, input.table)
     if input.use_cache:
         await cache.set(key, out, input.ttl)
@@ -147,7 +144,7 @@ async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
         hit = await cache.get(key)
         if hit is not None:
             return hit
-    async with await _connect(input) as conn:
+    async with _connect(input) as conn:
         out = await driver.run_select_json(conn, input.sql, input.max_rows)
     if input.use_cache:
         await cache.set(key, out, input.ttl)

@@ -17,7 +17,7 @@ from mcp.server.mcpserver import MCPServer
 from core.audit import audit_event
 from core.cache import TTLCache, mk_cache_key
 from core.ctx import get_ctx
-from core.engines import get_engine
+from core.engines import connect_checked, get_engine
 from core.metering import metering
 from core.ratelimit import ratelimiter
 from core.sqlguard import extract_tables
@@ -122,16 +122,13 @@ def _build_conn_args(conn: ConnectionMeta) -> Dict[str, str]:
     }
 
 
-async def _connect_cached(driver: Any, db_type: str, conn_args: Dict[str, str]) -> Any:
-    """Borrow a connection from the process-wide cached engine.
-
-    Previously each tool call built a brand-new AsyncEngine and never
-    disposed it -- leaking pools/threads on every query.
-    """
-    engine = await get_engine(driver, db_type, conn_args)
-    cn = await engine.connect()
-    await driver.ensure_connection(cn)
-    return cn
+    def _connect() -> Any:
+        # Returns an async context manager (core.engines.connect_checked),
+        # so call sites use `async with _connect() as cn:` (no await).
+        # `await engine.connect()` yields an already-started AsyncConnection;
+        # entering THAT with `async with` raised
+        # "InvalidRequestError: connection is already started" on real queries.
+        return connect_checked(driver, conn.db_type, conn_args)
 
 
 # ---------------------------------------------------------------------------
@@ -158,8 +155,11 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
             mime_type="text/markdown",
         )(_prompt_reader(text_md))
 
-    async def _connect() -> Any:
-        return await _connect_cached(driver, conn.db_type, conn_args)
+    def _connect() -> Any:
+        # Returns an async CM (core.engines.connect_checked); call sites use
+        # `async with _connect() as cn:` with NO await. Entering an
+        # already-started AsyncConnection raised "connection is already started".
+        return connect_checked(driver, conn.db_type, conn_args)
 
     @mcp.tool(name="mysql_get_builtin_prompt", description="Get MySQL built-in prompt by name.")
     def get_prompt(name: str) -> str:
@@ -171,7 +171,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     async def get_all_schemas(use_cache: bool = _CACHE_ENABLED_DEFAULT,
                               ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         async def _do() -> Dict[str, Any]:
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 raw = await driver.get_all_schemas(cn)
             if not ep.table_restricted:
                 return raw
@@ -194,7 +194,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
                          ttl: int = _CACHE_TTL_DEFAULT) -> List[str]:
         scope = database or conn.db_name
         async def _do() -> List[str]:
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 raw = await driver.get_tables(cn, scope)
             return ep.filter_tables(raw, scope)
         return await _run_tool("get_tables", ep, {"database": scope}, _do,
@@ -208,7 +208,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted and not ep.is_table_allowed(table, scope):
                 raise ValueError(f"Access denied: table '{table}' is not in the allowed list.")
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 return await driver.get_table_schema(cn, scope, table)
         return await _run_tool("get_table_schema", ep,
                                {"table": table, "database": scope}, _do,
@@ -222,7 +222,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted:
                 _validate_sql_tables(sql, ep, "mysql")
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 return await asyncio.wait_for(
                     driver.run_select_json(cn, sql, max_rows),
                     timeout=_QUERY_TIMEOUT)
@@ -256,8 +256,11 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
             mime_type="text/markdown",
         )(_prompt_reader(text_md))
 
-    async def _connect() -> Any:
-        return await _connect_cached(driver, conn.db_type, conn_args)
+    def _connect() -> Any:
+        # Returns an async CM (core.engines.connect_checked); call sites use
+        # `async with _connect() as cn:` with NO await. Entering an
+        # already-started AsyncConnection raised "connection is already started".
+        return connect_checked(driver, conn.db_type, conn_args)
 
     @mcp.tool(name="pgsql_get_builtin_prompt", description="Get PostgreSQL built-in prompt by name.")
     def get_prompt(name: str) -> str:
@@ -269,7 +272,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     async def get_all_schemas(use_cache: bool = _CACHE_ENABLED_DEFAULT,
                               ttl: int = _CACHE_TTL_DEFAULT) -> Dict[str, Any]:
         async def _do() -> Dict[str, Any]:
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 raw = await driver.get_all_schemas(cn)
             if not ep.table_restricted:
                 return raw
@@ -293,7 +296,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         if not schema:
             raise ValueError("schema is required for PostgreSQL")
         async def _do() -> List[str]:
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 raw = await driver.get_tables(cn, schema)
             return ep.filter_tables(raw, schema)
         return await _run_tool("get_tables", ep, {"schema": schema}, _do,
@@ -308,7 +311,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted and not ep.is_table_allowed(table, schema):
                 raise ValueError(f"Access denied: table '{table}' is not in the allowed list.")
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 return await driver.get_table_schema(cn, schema, table)
         return await _run_tool("get_table_schema", ep,
                                {"table": table, "schema": schema}, _do,
@@ -322,7 +325,7 @@ def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
         async def _do() -> Dict[str, Any]:
             if ep.table_restricted:
                 _validate_sql_tables(sql, ep, "postgres")
-            async with await _connect() as cn:
+            async with _connect() as cn:
                 return await asyncio.wait_for(
                     driver.run_select_json(cn, sql, max_rows),
                     timeout=_QUERY_TIMEOUT)

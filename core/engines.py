@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from typing import Any, Dict
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator, Dict
 
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 
 _engine_cache: Dict[str, AsyncEngine] = {}
@@ -54,3 +55,22 @@ async def drop_engines() -> None:
         for engine in _engine_cache.values():
             await engine.dispose()
         _engine_cache.clear()
+
+
+@asynccontextmanager
+async def connect_checked(driver: Any, db_type: str,
+                          conn_args: Dict[str, Any]) -> AsyncIterator[AsyncConnection]:
+    """Yield a live, health-checked connection; always released to the pool.
+
+    NOTE: ``await engine.connect()`` returns an *already-started*
+    AsyncConnection, so it must NOT be entered with ``async with``
+    (that raises ``InvalidRequestError: connection is already started``).
+    Use this helper -- or try/finally + ``close()`` -- instead.
+    """
+    engine = await get_engine(driver, db_type, conn_args)
+    cn = await engine.connect()
+    try:
+        await driver.ensure_connection(cn)
+        yield cn
+    finally:
+        await cn.close()
