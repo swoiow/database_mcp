@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from pydantic import BaseModel, Field
 
 from core.cache import mk_cache_key, TTLCache
@@ -31,7 +31,7 @@ CACHE_TTL_DEFAULT = int(os.getenv("DBMCP_CACHE_TTL", "60"))
 cache = TTLCache(maxsize=512)
 
 driver = PGSQLDriver()
-mcp = FastMCP("DB-MCP-PGSQL")
+mcp = MCPServer("DB-MCP-PGSQL")
 
 # ---------- Resources: prompts ----------
 def _prompt_reader(text: str):
@@ -41,7 +41,7 @@ def _prompt_reader(text: str):
 
 
 for name, text_md in PG_PROMPTS.items():
-    # NOTE: FastMCP.add_resource() takes a Resource object (the old
+    # NOTE: MCPServer.add_resource() takes a Resource object (the old
     # uri=/text= kwargs never existed in SDK 1.27+); use the decorator.
     mcp.resource(
         f"mcp://pgsql/prompts/{name}",
@@ -159,9 +159,9 @@ async def execute_sql(input: ExecuteSQLInput) -> Dict[str, Any]:
 
 
 # ASGI app for uvicorn/Docker (`uvicorn server_pgsql:app`).
-# (FastMCP has no `.app` attribute; the old Dockerfile target `mcp.app`
+# (MCPServer has no `.app` attribute; the old Dockerfile target `mcp.app`
 # crashed with AttributeError.)
-app = mcp.sse_app()
+app = mcp.sse_app(message_path="/messages")  # mcp 2.x defaults to "/messages/"; keep v1 URL
 
 
 if __name__ == "__main__":

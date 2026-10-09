@@ -296,12 +296,14 @@ Config is stored in `gateway_data.json` (JSON, atomic writes). A legacy
 | `DBMCP_QUERY_TIMEOUT` | `30` | tool-call timeout, seconds |
 | `DBMCP_MAX_ROWS` | `10000` | hard server-side cap for `execute_sql` `max_rows` |
 | `DBMCP_RATE_LIMIT_PER_MIN` | `120` | tool calls per (user, endpoint) per minute |
+| `MCP_ALLOWED_HOSTS` | *(empty)* | comma-separated `host:port` allow-list for SDK DNS-rebinding protection (public-domain deployments) |
 
 > **Production note (Streamable HTTP):** the MCP SDK enables DNS-rebinding
 > protection by default and only allows `localhost` / `127.0.0.1` / `[::1]`
 > (with port). If you serve the gateway on a public domain, extend the
-> allow-list via env, e.g.
-> `FASTMCP_TRANSPORT_SECURITY__ALLOWED_HOSTS='["db.example.com:*"]'`.
+> allow-list via env (mcp 2.x no longer reads
+> `FASTMCP_TRANSPORT_SECURITY__*` env vars, so the gateway maps it for you):
+> `MCP_ALLOWED_HOSTS="db.example.com:*"`.
 > SSE transport is unaffected.
 
 ## Tests
@@ -318,7 +320,7 @@ metering, rate limiter, engine fingerprint.
 ## Requirements
 
 - Python 3.12+
-- mcp >= 1.27, < 2 (v1 API with `FastMCP`; v2 renamed it to `MCPServer`)
+- mcp >= 2 (v2 API with `MCPServer`; v1's `FastMCP` was renamed)
 - fastapi, uvicorn, sqlalchemy, aiomysql, asyncpg, python-dotenv,
   pydantic, sqlglot
 - Pinned lock file: `requirements.lock` (`pip install -r requirements.lock`)

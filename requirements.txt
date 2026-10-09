@@ -1,4 +1,4 @@
-mcp[server]>=1.27,<2  # v1 API: FastMCP; v2 renamed to MCPServer (breaking)
+mcp>=2  # v2 API: MCPServer (2.x has no 'server' extra; server deps are hard deps now)
 sqlalchemy>=2.0.30
 asyncpg>=0.29.0
 aiomysql>=0.2.0

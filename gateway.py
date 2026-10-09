@@ -17,7 +17,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -29,6 +29,7 @@ from core.metering import metering
 from gateway_api import admin_router, user_router
 from gateway_config import ConfigStore, get_store, UserMeta
 from gateway_mcp_factory import create_mcp_for_endpoint
+from mcp.server.transport_security import TransportSecuritySettings
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -51,9 +52,38 @@ _mounted_apps: Dict[str, object] = {}
 _mcp_runners: Dict[str, tuple] = {}  # endpoint id -> (runner task, stop event)
 
 
+def _transport_security() -> Optional[TransportSecuritySettings]:
+    """Build SDK transport-security settings from env, if configured.
+
+    The MCP SDK enables DNS-rebinding protection by default and only
+    allow-lists localhost-style hosts. Serving the gateway on a public
+    domain requires extending the allow-list, e.g.::
+
+        MCP_ALLOWED_HOSTS="db.example.com:*"
+
+    (mcp 1.x used ``FASTMCP_TRANSPORT_SECURITY__ALLOWED_HOSTS`` for this;
+    mcp 2.x removed env-var configuration, so the gateway reads it and
+    passes ``TransportSecuritySettings`` explicitly.)
+    """
+    raw = os.environ.get("MCP_ALLOWED_HOSTS", "").strip()
+    if not raw:
+        return None
+    hosts = [h.strip() for h in raw.split(",") if h.strip()]
+    origins = []
+    for h in hosts:
+        origins.append("https://" + h)
+        origins.append("http://" + h)
+    return TransportSecuritySettings(allowed_hosts=hosts, allowed_origins=origins)
+
+
 def _build_endpoint_app(mcp) -> Starlette:
-    sse_sub = mcp.sse_app()              # routes: /sse, /messages (no lifespan needs)
-    http_sub = mcp.streamable_http_app()  # routes: /mcp (default path)
+    # NOTE (mcp 2.x): sse_app()'s default message_path is "/messages/"
+    # (trailing slash); pass "/messages" explicitly to keep the v1 URL.
+    sec = _transport_security()
+    sse_sub = mcp.sse_app(message_path="/messages",
+                          transport_security=sec)  # routes: /sse, /messages (no lifespan needs)
+    http_sub = mcp.streamable_http_app(
+        transport_security=sec)  # routes: /mcp (default path)
     return Starlette(routes=[*sse_sub.routes, *http_sub.routes])
 
 
@@ -87,7 +117,7 @@ async def _sync_mounts(app: FastAPI, store: ConfigStore) -> None:
     global _mounted_apps
 
     desired: Dict[str, str] = {}   # mount path -> endpoint id
-    built: Dict[str, object] = {}  # endpoint id -> combined sub-app (one FastMCP per endpoint)
+    built: Dict[str, object] = {}  # endpoint id -> combined sub-app (one MCPServer per endpoint)
     for ep in store.list_endpoints():
         conn = store.get_connection(ep.connection_id)
         if not conn:

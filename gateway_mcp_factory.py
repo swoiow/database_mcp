@@ -12,7 +12,7 @@ import os
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from core.audit import audit_event
 from core.cache import TTLCache, mk_cache_key
@@ -138,11 +138,11 @@ async def _connect_cached(driver: Any, db_type: str, conn_args: Dict[str, str]) 
 # MySQL
 # ---------------------------------------------------------------------------
 
-def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> FastMCP:
+def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     driver = _mysql_driver
     conn_args = _build_conn_args(conn)
 
-    mcp = FastMCP(f"DB-MCP-MySQL-{ep.alias}")
+    mcp = MCPServer(f"DB-MCP-MySQL-{ep.alias}")
 
     def _prompt_reader(text: str):
         def _read() -> str:
@@ -150,7 +150,7 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> FastMCP:
         return _read
 
     for name, text_md in MYSQL_PROMPTS.items():
-        # NOTE: FastMCP.add_resource() takes a Resource object (the old
+        # NOTE: MCPServer.add_resource() takes a Resource object (the old
         # uri=/text= kwargs never existed in SDK 1.27+); use the decorator.
         mcp.resource(
             f"mcp://mysql/{ep.id}/prompts/{name}",
@@ -238,11 +238,11 @@ def _create_mysql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> FastMCP:
 # PostgreSQL
 # ---------------------------------------------------------------------------
 
-def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> FastMCP:
+def _create_pgsql_mcp(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     driver = _pgsql_driver
     conn_args = _build_conn_args(conn)
 
-    mcp = FastMCP(f"DB-MCP-PGSQL-{ep.alias}")
+    mcp = MCPServer(f"DB-MCP-PGSQL-{ep.alias}")
 
     def _prompt_reader(text: str):
         def _read() -> str:
@@ -365,7 +365,7 @@ def _validate_sql_tables(sql: str, ep: EndpointMeta, dialect: str) -> None:
 # Public factory
 # ---------------------------------------------------------------------------
 
-def create_mcp_for_endpoint(conn: ConnectionMeta, ep: EndpointMeta) -> FastMCP:
+def create_mcp_for_endpoint(conn: ConnectionMeta, ep: EndpointMeta) -> MCPServer:
     """Create an MCP server for an endpoint. Connection = credentials, endpoint = scope."""
     if conn.db_type == "mysql":
         return _create_mysql_mcp(conn, ep)
